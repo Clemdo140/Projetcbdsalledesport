@@ -574,33 +574,116 @@ namespace Projetcbdsalledesport
             bool retour = false;
             while (!retour)
             {
-                Console.WriteLine("\n--- ESPACE MEMBRE ---");
-                Console.WriteLine("1. Voir les cours (Nom, Description, Intensité)");
-                Console.WriteLine("2. Réserver un cours (Vérification capacité)");
-                Console.WriteLine("3. Annuler une réservation");
-                Console.WriteLine("0. Retour");
+                Console.Clear();
+                Console.ForegroundColor = ConsoleColor.Blue;
+                Console.WriteLine($"--- ESPACE MEMBRE (Connecté en tant que : {membre.Prenom} {membre.Nom}) ---");
+                Console.ResetColor();
+                Console.WriteLine("1. Voir le planning des cours (Détails, Intensité, Niveau)");
+                Console.WriteLine("2. Réserver un cours (Vérification des places)");
+                Console.WriteLine("3. Voir mes réservations / Annuler");
+                Console.WriteLine("0. Retour (Déconnexion)");
+                Console.Write("\nVotre choix : ");
 
                 string choix = Console.ReadLine();
-                if (choix == "2")
+
+                switch (choix)
                 {
-                    Console.Write("ID du cours : ");
-                    string idC = Console.ReadLine();
+                    case "1": // VOIR LES COURS DÉTAILLÉS
+                        Console.Clear();
+                        Console.ForegroundColor = ConsoleColor.Blue;
+                        Console.WriteLine("--- PLANNING DES COURS ---");
+                        Console.ResetColor();
+                        // Jointure pour avoir les infos textuelles demandées par le sujet
+                        string sqlPlanning = @"SELECT S.IdSeance, T.NomCours, T.Description, T.Intensite, S.DateDebut 
+                                              FROM Seance S 
+                                              JOIN TypeCours T ON S.IdCours = T.IdCours";
+                        DataTable dtP = manager.ExecuterLecture(sqlPlanning);
 
-                    // RÈGLE MÉTIER : Vérification de la capacité
-                    int inscrits = (int)manager.ExecuterCalcul($"SELECT COUNT(*) FROM Reservation WHERE IdSeance = {idC}");
-                    int max = (int)manager.ExecuterCalcul($"SELECT CapaciteMax FROM Seance WHERE IdSeance = {idC}");
+                        foreach (DataRow r in dtP.Rows)
+                        {
+                            Console.WriteLine($"[{r["IdSeance"]}] {r["nomCours"]} - {r["horaire"]}");
+                            Console.WriteLine($"    Description : {r["description"]}");
+                            Console.WriteLine($"    Intensité : {r["intensite"]} | Niveau : {r["niveau"]}");
+                            Console.WriteLine("---------------------------------------------------------");
+                        }
+                        Console.WriteLine("\nAppuyez sur une touche pour revenir...");
+                        Console.ReadKey();
+                        break;
 
-                    if (inscrits < max)
-                    {
-                        manager.ExecuterAction($"INSERT INTO Reservation (IdUtilisateur, IdSeance, DateReservation) VALUES ({membre.IdUtilisateur}, {idC}, GETDATE())");
-                        Console.WriteLine("Réservation confirmée !");
-                    }
-                    else
-                    {
-                        Console.WriteLine("ERREUR : Cours complet.");
-                    }
+                    case "2": // RÉSERVER AVEC RÈGLE MÉTIER
+                        Console.Clear();
+                        Console.ForegroundColor = ConsoleColor.Blue;
+                        Console.WriteLine("--- RÉSERVATION D'UNE SÉANCE ---");
+                        Console.ResetColor();
+                        Console.Write("Entrez l'ID du cours souhaité : ");
+                        string idC = Console.ReadLine();
+                        if (string.IsNullOrEmpty(idC))
+                        {
+                            Console.WriteLine("Erreur : Vous devez saisir un ID valide.");
+                            Console.ReadKey();
+                            break;
+                        }
+                        // RÈGLE MÉTIER : Vérification de la capacité en temps réel
+                        // On compte les réservations déjà existantes pour cette séance
+                        int inscrits = Convert.ToInt32(manager.ExecuterCalcul($"SELECT COUNT(*) FROM Reservation WHERE IdSeance = {idC}"));
+                        int max = Convert.ToInt32(manager.ExecuterCalcul($"SELECT CapaciteMax FROM Seance WHERE IdSeance = {idC}"));
+
+                        if (inscrits < max)
+                        {
+                            // Insertion de la réservation (NOW() pour MySQL)
+                            manager.ExecuterAction($"INSERT INTO Reservation (IdUtilisateur, IdSeance, DateReservation) VALUES ({membre.IdUtilisateur}, {idC}, NOW())");
+                            Console.ForegroundColor = ConsoleColor.Green;
+                            Console.WriteLine("\nSUCCÈS : Réservation confirmée !");
+                            Console.ResetColor();
+                        }
+                        else
+                        {
+                            Console.ForegroundColor = ConsoleColor.Red;
+                            Console.WriteLine("\nERREUR : Ce cours est complet (Capacité max atteinte).");
+                            Console.ResetColor();
+                        }
+                        Console.ReadKey();
+                        break;
+
+                    case "3": // HISTORIQUE ET ANNULATION
+                        Console.Clear();
+                        Console.ForegroundColor = ConsoleColor.Blue;
+                        Console.WriteLine("--- MES RÉSERVATIONS ---");
+                        Console.ResetColor();
+                        string sqlMesRes = $@"SELECT R.IdReservation, T.nomCours, S.DateDebut 
+                                     FROM Reservation R 
+                                     JOIN Seance S ON R.IdSeance = S.IdSeance 
+                                     JOIN TypeCours T ON S.IdCours = T.IdCours 
+                                     WHERE R.IdUtilisateur = {membre.IdUtilisateur}";
+
+                        DataTable dtM = manager.ExecuterLecture(sqlMesRes);
+                        if (dtM.Rows.Count > 0)
+                        {
+                            foreach (DataRow r in dtM.Rows)
+                            {
+                                Console.WriteLine($"- ID Réservation : {r["IdReservation"]} | Cours : {r["nomCours"]} à {r["horaire"]}");
+                            }
+
+                            Console.Write("\nSouhaitez-vous annuler une réservation ? (Entrez l'ID ou 'N') : ");
+                            string idAnnul = Console.ReadLine();
+                            if (idAnnul.ToUpper() != "N")
+                            {
+                                manager.ExecuterAction($"DELETE FROM Reservation WHERE IdReservation = {idAnnul} AND IdUtilisateur = {membre.IdUtilisateur}");
+                                Console.WriteLine("Réservation annulée avec succès.");
+                            }
+                        }
+                        else Console.WriteLine("Vous n'avez aucune réservation en cours.");
+                        Console.ReadKey();
+                        break;
+
+                    case "0":
+                        retour = true;
+                        break;
+
+                    default:
+                        Console.WriteLine("Choix invalide.");
+                        break;
                 }
-                else if (choix == "0") retour = true;
             }
         }
     }
