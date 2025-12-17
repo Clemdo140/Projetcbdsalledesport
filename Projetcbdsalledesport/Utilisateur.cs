@@ -9,7 +9,7 @@ namespace Projetcbdsalledesport
     //Classe 1 du pôle 1 utilisateur représentant un utilisateur de l'application
     public class Utilisateur
     {
-        public int Id { get; set; }
+        public int IdUtilisateur { get; set; }
         public string Nom { get; set; }
         public string Prenom { get; set; }
         public string Email { get; set; }
@@ -33,7 +33,7 @@ namespace Projetcbdsalledesport
         /// <param name="role"></param>
         public Utilisateur(int id, string nom, string prenom, string email, Role role)
         {
-            this.Id = id;
+            this.IdUtilisateur = id;
             this.Nom = nom;
             this.Prenom = prenom;
             this.Email = email;

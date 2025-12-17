@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Data;
-using System.Data.SqlClient;
+using MySql.Data.MySqlClient;
 
 namespace Projetcbdsalledesport
 {
@@ -16,7 +16,7 @@ namespace Projetcbdsalledesport
 
         public CommandeManager(string utilisateur, int privilege, string mdp)
         {
-            connectionString = $"Server=(àchanger); Database=(àchanger); User Id={utilisateur}; Password={mdp};";
+            connectionString = $"Server=localhost;Database=SalleDeSport;User Id=root;Password=Clement2006!;";
         }
         /// <summary>
         /// Méthode pour lire les données dans la base de données
@@ -25,9 +25,9 @@ namespace Projetcbdsalledesport
         /// <returns></returns>
         public DataTable ExecuterLecture(string sql)
         {
-            using (SqlConnection conn = new SqlConnection(connectionString))//création d'une connexion à la base
+            using (MySqlConnection conn = new MySqlConnection(connectionString))//création d'une connexion à la base
             {
-                SqlDataAdapter adapter = new SqlDataAdapter(sql, conn);//création d'un adaptateur de données
+                MySqlDataAdapter adapter = new MySqlDataAdapter(sql, conn);//création d'un adaptateur de données
                 DataTable dt = new DataTable();//création d'un tableau de données
                 adapter.Fill(dt);//remplissage du tableau de données avec les données de la base
                 return dt;
@@ -39,10 +39,10 @@ namespace Projetcbdsalledesport
         /// <param name="sql"></param>
         public void ExecuterAction(string sql)
         {
-            using (SqlConnection conn = new SqlConnection(connectionString))
+            using (MySqlConnection conn = new MySqlConnection(connectionString))
             {
                 conn.Open();//ouverture de la connexion
-                SqlCommand cmd = new SqlCommand(sql, conn);//création d'une commande SQL
+                MySqlCommand cmd = new MySqlCommand(sql, conn);//création d'une commande SQL
                 cmd.ExecuteNonQuery();//exécution de la commande SQL
             }
         }
@@ -53,10 +53,10 @@ namespace Projetcbdsalledesport
         /// <returns></returns>
         public object ExecuterCalcul(string sql)
         {
-            using (SqlConnection conn = new SqlConnection(this.connectionString))
+            using (MySqlConnection conn = new MySqlConnection(this.connectionString))
             {
                 conn.Open();
-                SqlCommand cmd = new SqlCommand(sql, conn);
+                MySqlCommand cmd = new MySqlCommand(sql, conn);
                 return cmd.ExecuteScalar();//exécution de la commande SQL et retour du résultat
             }
         }
