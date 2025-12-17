@@ -16,7 +16,7 @@ namespace Projetcbdsalledesport
 
         public CommandeManager(string utilisateur, int privilege, string mdp)
         {
-            connectionString = $"Server=localhost;Database=SalleDeSport;User Id=root;Password=Clement2006!;";
+            connectionString = $"Server=localhost;Database=SalleDeSport;Uid={utilisateur};Pwd={mdp};";
         }
         /// <summary>
         /// Méthode pour lire les données dans la base de données

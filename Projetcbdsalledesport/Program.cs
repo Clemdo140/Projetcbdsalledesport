@@ -12,7 +12,7 @@ namespace Projetcbdsalledesport
         static void Main(string[] args)
         {
             //Initialisation de la connexion
-            string connectionString = "Server=localhost;Database=SalleDeSport;User Id=root;Password=Clement2006!;";
+            string connectionString = "Server=localhost;Database=SalleDeSport;Uid=AppUser;Pwd=MdpAppUser;";
             CommandeManager manager = new CommandeManager(connectionString, 0, "");//On crée le manager pour la première fois mais comme personne n'est connecté, on met le privilège à 0 et le mot de passe est vide
             bool applicationEnCours = true;
             while (applicationEnCours) { 
@@ -87,34 +87,50 @@ namespace Projetcbdsalledesport
         static void MenuEvaluation(CommandeManager manager)
         {
             Console.Clear();
-            Console.WriteLine("=== INTERFACE ÉVALUATION : RAPPORTS STATISTIQUES ===");
+            Console.ForegroundColor = ConsoleColor.Blue;
+            Console.WriteLine("--- [RAPPORT STATISTIQUE - ÉVALUATION] ---");
+            Console.ResetColor();
+            Console.WriteLine("Génération des rapports en cours...\n");
 
-            // 1. Nombre de membres (COUNT)
-            var nbMembres = manager.ExecuterCalcul("SELECT COUNT(*) FROM Utilisateur WHERE IdRole = 3");
-            Console.WriteLine($"- Nombre total de membres : {nbMembres}");
+            // 1. Nombre total de membres actifs
+            int nbMembres = Convert.ToInt32(manager.ExecuterCalcul("SELECT COUNT(*) FROM Utilisateur WHERE IdRole = 3"));
 
-            // 2. Chiffre d'affaires (SUM)
-            var revenus = manager.ExecuterCalcul("SELECT SUM(prix) FROM TypeAdhesion");
-            Console.WriteLine($"- Revenus totaux : {revenus} €");
+            // 2. Le cours le plus populaire (celui qui a le plus de réservations)
+            string sqlPop = @"SELECT T.nomCours, COUNT(*) as Total 
+                  FROM Reservation R
+                  JOIN Seance S ON R.IdSeance = S.IdSeance 
+                  JOIN TypeCours T ON S.IdCours = T.IdCours
+                  GROUP BY T.nomCours 
+                  ORDER BY Total DESC LIMIT 1";
+            DataTable dtPop = manager.ExecuterLecture(sqlPop);
+            string coursPop = dtPop.Rows.Count > 0 ? dtPop.Rows[0]["nomC"].ToString() : "Aucun";
 
-            // 3. Prix moyen (AVG)
-            var prixMoyen = manager.ExecuterCalcul("SELECT AVG(prix) FROM TypeAdhesion");
-            Console.WriteLine($"- Prix moyen adhésion : {prixMoyen} €");
+            // 3. Taux d'occupation moyen (Somme inscrits / Somme capacité)
+            // C'est une règle métier intéressante pour le jury
+            double occupation = 0;
+            try
+            {
+                string sqlOcc = "SELECT (COUNT(R.IdReservation) * 100.0 / SUM(S.CapaciteMax)) FROM Seance S LEFT JOIN Reservation R ON S.IdSeance = R.IdSeance";
+                occupation = Convert.ToDouble(manager.ExecuterCalcul(sqlOcc));
+            }
+            catch { occupation = 0; }
 
-            // 4. Plus gros cours (MAX)
-            var capMax = manager.ExecuterCalcul("SELECT MAX(CapaciteMax) FROM Seance");
-            Console.WriteLine($"- Capacité max : {capMax} places");
+            // AFFICHAGE DES RESULTATS
+            Console.WriteLine($"* Nombre de membres inscrits : {nbMembres}");
+            Console.WriteLine($"* Cours le plus suivi : {coursPop}");
+            Console.WriteLine($"* Taux de remplissage global : {Math.Round(occupation, 2)}%");
+            Console.ForegroundColor = ConsoleColor.Blue;
+            Console.WriteLine("\n--- TOP 3 COACHS LES PLUS SUIVIS ---");
+            Console.ResetColor();
+            string sqlCoachs = @"SELECT C.nom, COUNT(R.IdReservation) as Nb 
+                         FROM Coach C 
+                         JOIN Seance S ON C.IdCoach = S.IdCoach 
+                         JOIN Reservation R ON S.IdSeance = R.IdSeance 
+                         GROUP BY C.nom ORDER BY Nb DESC LIMIT 3";
+            DataTable dtC = manager.ExecuterLecture(sqlCoachs);
+            foreach (DataRow r in dtC.Rows) Console.WriteLine($"- {r["nom"]} : {r["Nb"]} réservations");
 
-            // 5. Inscriptions ce mois (COUNT)
-            var mois = manager.ExecuterCalcul("SELECT COUNT(*) FROM Reservation WHERE MONTH(DateReservation) = MONTH(GETDATE())");
-            Console.WriteLine($"- Réservations ce mois-ci : {mois}");
-
-            // 6. Coach le plus populaire (TOP 1 + COUNT)
-            // Note: Cette requête dépend de ta structure exacte
-            var coachTop = manager.ExecuterCalcul("SELECT TOP 1 NomCoach FROM Seance GROUP BY NomCoach ORDER BY COUNT(*) DESC");
-            Console.WriteLine($"- Coach le plus sollicité : {coachTop}");
-
-            Console.WriteLine("\nAppuyez sur une touche pour revenir...");
+            Console.WriteLine("\nAppuyez sur une touche pour quitter le rapport...");
             Console.ReadKey();
         }
         static void MenuAdminPrincipal(CommandeManager manager)
