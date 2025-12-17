@@ -1,3 +1,4 @@
+USE SalleDeSport;
 CREATE USER 'AdminPrincipal'@'localhost' IDENTIFIED BY 'MdpAdminPrincipal';
 GRANT ALL PRIVILEGES ON SalleDeSport.* TO 'AdminPrincipal'@'localhost';
 
