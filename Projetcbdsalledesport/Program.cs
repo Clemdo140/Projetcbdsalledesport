@@ -315,15 +315,15 @@ namespace Projetcbdsalledesport
                                     Console.WriteLine("--- LISTE DES COACHS ---");
                                     Console.ResetColor();
                                     // On récupère les colonnes demandées par ton sujet
-                                    DataTable dt = manager.ExecuterLecture("SELECT nom, prenom, specialite, telephone FROM Coach");
+                                    DataTable dt = manager.ExecuterLecture("SELECT nom, prenom, specialite, formation, telephone, email FROM Coach");
 
                                     if (dt.Rows.Count > 0)
                                     {
                                         foreach (DataRow row in dt.Rows)
                                         {
                                             Console.WriteLine($"- {row["prenom"]} {row["nom"].ToString().ToUpper()}");
-                                            Console.WriteLine($"  Spécialité : {row["specialite"]} | Tel : {row["telephone"]}");
-                                            Console.WriteLine("-----------------------------------");
+                                            Console.WriteLine($"  Spécialité : {row["specialite"]} | Formation : {row["formation"]} | Tel: {row["telephone"]} | Email : {row["email"]}");
+                                            Console.WriteLine("---------------------------------------------------------------------------------------------------------------------");
                                         }
                                     }
                                     else
@@ -342,11 +342,13 @@ namespace Projetcbdsalledesport
                                     Console.Write("Nom : "); string n = Console.ReadLine();
                                     Console.Write("Prénom : "); string p = Console.ReadLine();
                                     Console.Write("Spécialité : "); string s = Console.ReadLine();
-                                    Console.Write("Numéro de contact : "); string t = Console.ReadLine();
+                                    Console.Write("Formation : "); string f = Console.ReadLine();
+                                    Console.Write("Numéro de téléphone : "); string t = Console.ReadLine();
+                                    Console.Write("Email : "); string e = Console.ReadLine();
 
                                     // Requête d'insertion dans la table Coach
-                                    string sqlAdd = $"INSERT INTO Coach (nom, prenom, specialite, telephone) " +
-                                                    $"VALUES ('{n}', '{p}', '{s}', '{t}')";
+                                    string sqlAdd = $"INSERT INTO Coach (nom, prenom, specialite, formation, telephone, email) " +
+                                                    $"VALUES ('{n}', '{p}', '{s}', '{f}', '{t}','{e}')";
 
                                     manager.ExecuterAction(sqlAdd);
 
@@ -414,10 +416,12 @@ namespace Projetcbdsalledesport
                                     Console.WriteLine("--- PLANNING ACTUEL ---");
                                     Console.ResetColor();
                                     // On fait une JOINTURE (Join) pour afficher le nom du coach et de la salle au lieu de simples IDs
-                                    string sqlPlanning = @"SELECT S.IdSeance, S.nomC, S.horaire, S.CapaciteMax, C.nom as NomCoach, Sa.nom as NomSalle 
-                                      FROM Seance S 
-                                      JOIN Coach C ON S.IdCoach = C.IdCoach 
-                                      JOIN Salle Sa ON S.IdSalle = Sa.IdSalle";
+                                    string sqlPlanning = @"SELECT S.IdSeance, T.NomCours, S.DateDebut, S.CapaciteMax, 
+                                                         C.nom as NomCoach, Sa.nomSalle as NomSalle 
+                                                  FROM Seance S 
+                                                  JOIN TypeCours T ON S.IdCours = T.IdCours 
+                                                  JOIN Coach C ON S.IdCoach = C.IdCoach 
+                                                  JOIN Salle Sa ON S.idSalle = Sa.idSalle";
 
                                     DataTable dtP = manager.ExecuterLecture(sqlPlanning);
                                     if (dtP.Rows.Count > 0)
@@ -515,14 +519,16 @@ namespace Projetcbdsalledesport
                                 case "1": // VOIR LES SALLES
                                     Console.Clear();
                                     Console.WriteLine("--- LISTE DES SALLES ---");
-                                    // On récupère le nom et la capacité de la salle
+
+                                    // On récupère toutes les colonnes de la table Salle
                                     DataTable dtSalles = manager.ExecuterLecture("SELECT * FROM Salle");
 
                                     if (dtSalles.Rows.Count > 0)
                                     {
                                         foreach (DataRow row in dtSalles.Rows)
                                         {
-                                            Console.WriteLine($"- ID: {row["IdSalle"]} | Nom: {row["nom"]} | Capacité : {row["capacite"]} personnes");
+                                            // Correction : On utilise "nomSalle" au lieu de "nom"
+                                            Console.WriteLine($"- ID: {row["idSalle"]} | Nom: {row["nomSalle"]} | Capacité : {row["capacite"]} personnes");
                                         }
                                     }
                                     else
@@ -623,7 +629,9 @@ namespace Projetcbdsalledesport
 
                     case "3":
                         Console.Clear();
+                        Console.ForegroundColor = ConsoleColor.Blue;
                         Console.WriteLine("--- PLANNING DES SÉANCES ---");
+                        Console.ResetColor();
 
                         // On fait une jointure pour récupérer le nom du cours depuis la table TypeCours
                         string sqlPlanning = @"SELECT T.NomCours, S.DateDebut 
@@ -662,10 +670,11 @@ namespace Projetcbdsalledesport
                 Console.ForegroundColor = ConsoleColor.Cyan;
                 Console.WriteLine($"--- ESPACE MEMBRE (Connecté en tant que : {membre.Prenom} {membre.Nom}) ---");
                 Console.ResetColor();
-                Console.WriteLine("1. Voir le planning des cours (Détails, Intensité, Niveau)");
-                Console.WriteLine("2. Réserver un cours (Vérification des places)");
-                Console.WriteLine("3. Voir mes réservations / Annuler");
-                Console.WriteLine("0. Retour (Déconnexion)");
+                Console.WriteLine("0) Retour (Déconnexion)");
+                Console.WriteLine("1) Voir le planning des cours (Détails, Intensité, Niveau)");
+                Console.WriteLine("2) Réserver un cours (Vérification des places)");
+                Console.WriteLine("3) Voir mes réservations / Annuler");
+                Console.WriteLine("4) Souscrire à un abonnement");
                 Console.Write("\nVotre choix : ");
 
                 string choix = Console.ReadLine();
@@ -685,9 +694,9 @@ namespace Projetcbdsalledesport
 
                         foreach (DataRow r in dtP.Rows)
                         {
-                            Console.WriteLine($"[{r["IdSeance"]}] {r["nomCours"]} - {r["horaire"]}");
-                            Console.WriteLine($"    Description : {r["description"]}");
-                            Console.WriteLine($"    Intensité : {r["intensite"]} | Niveau : {r["niveau"]}");
+                            Console.WriteLine($"[{r["IdSeance"]}] {r["NomCours"]} - {r["DateDebut"]}");
+                            Console.WriteLine($"    Description : {r["Description"]}");
+                            Console.WriteLine($"    Intensité : {r["Intensite"]} ");
                             Console.WriteLine("---------------------------------------------------------");
                         }
                         Console.WriteLine("\nAppuyez sur une touche pour revenir...");
@@ -745,7 +754,7 @@ namespace Projetcbdsalledesport
                         {
                             foreach (DataRow r in dtM.Rows)
                             {
-                                Console.WriteLine($"- ID Réservation : {r["IdReservation"]} | Cours : {r["nomCours"]} à {r["horaire"]}");
+                                Console.WriteLine($"- ID Réservation : {r["IdReservation"]} | Cours : {r["nomCours"]} à {r["DateDebut"]}");
                             }
 
                             Console.Write("\nSouhaitez-vous annuler une réservation ? (Entrez l'ID ou 'N') : ");
@@ -757,6 +766,36 @@ namespace Projetcbdsalledesport
                             }
                         }
                         else Console.WriteLine("Vous n'avez aucune réservation en cours.");
+                        Console.ReadKey();
+                        break;
+
+                    case "4": // ADHÉRER À UN ABONNEMENT
+                        Console.Clear();
+                        Console.ForegroundColor = ConsoleColor.Blue;
+                        Console.WriteLine("--- CHOISIR UN ABONNEMENT ---");
+                        Console.ResetColor();
+
+                        // 1. Lister les types d'adhésion disponibles
+                        DataTable dtTypes = manager.ExecuterLecture("SELECT * FROM TypeAdhesion");
+                        foreach (DataRow r in dtTypes.Rows)
+                        {
+                            Console.WriteLine($"{r["IdTypeAdhesion"]}. {r["libelle"]} - {r["prix"]}€/mois");
+                        }
+
+                        Console.Write("\nEntrez le numéro de l'abonnement souhaité : ");
+                        string choixAdh = Console.ReadLine();
+
+                        // 2. Créer la souscription (en statut 'En attente')
+                        // Le staff devra ensuite la valider avec le bouton qu'on a réparé tout à l'heure !
+                        string dateDebut = DateTime.Now.ToString("yyyy-MM-dd");
+                        string dateFin = DateTime.Now.AddYears(1).ToString("yyyy-MM-dd");
+
+                        string sqlSouscrire = $"INSERT INTO Souscription (dateDebut, dateFin, statut, IdUtilisateur, IdTypeAdhesion) " +
+                                             $"VALUES ('{dateDebut}', '{dateFin}', 'En attente', {membre.IdUtilisateur}, {choixAdh})";
+
+                        manager.ExecuterAction(sqlSouscrire);
+
+                        Console.WriteLine("\n✅ Demande envoyée ! Veuillez vous présenter à l'accueil pour le règlement.");
                         Console.ReadKey();
                         break;
 
