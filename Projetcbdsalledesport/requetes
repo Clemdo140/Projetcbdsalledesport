@@ -1,0 +1,133 @@
+USE SalleDeSport;
+
+-- =========================================================
+-- REQUÊTES SQL 
+-- =========================================================
+
+
+-- =========================================================
+-- 1. REQUÊTES AVEC JOINTURES (JOIN)
+-- =========================================================
+
+-- Requête 1 : Afficher la liste des réservations avec
+-- le nom du membre et la date de la séance
+-- Utilisée dans : interface administrateur
+SELECT u.nom, u.prenom, s.DateDebut
+FROM Reservation r
+JOIN Utilisateur u ON r.IdUtilisateur = u.IdUtilisateur
+JOIN Seance s ON r.IdSeance = s.IdSeance;
+
+
+-- Requête 2 : Afficher les séances avec le nom du coach
+-- Utilisée dans : interface membre
+SELECT s.IdSeance, s.DateDebut, c.nom, c.prenom
+FROM Seance s
+JOIN Coach c ON s.IdCoach = c.IdCoach;
+
+
+
+-- =========================================================
+-- 2. LEFT JOIN
+-- =========================================================
+
+-- Requête 3 : Afficher toutes les séances,
+-- même celles sans réservation
+-- Utilisée dans : interface évaluation
+SELECT s.IdSeance, s.DateDebut, COUNT(r.IdReservation) AS NbReservations
+FROM Seance s
+LEFT JOIN Reservation r ON s.IdSeance = r.IdSeance
+GROUP BY s.IdSeance, s.DateDebut;
+
+
+
+-- =========================================================
+-- 3. RIGHT JOIN
+-- =========================================================
+
+-- Requête 4 : Afficher tous les utilisateurs
+-- même ceux qui n'ont jamais réservé
+-- Utilisée dans : interface administrateur
+SELECT u.nom, u.prenom, r.IdReservation
+FROM Reservation r
+RIGHT JOIN Utilisateur u ON r.IdUtilisateur = u.IdUtilisateur;
+
+
+
+-- =========================================================
+-- 4. REQUÊTES AVEC SOUS-REQUÊTES
+-- =========================================================
+
+-- Requête 5 : Afficher les membres ayant une adhésion active
+-- Utilisée dans : gestion des membres
+SELECT nom, prenom
+FROM Utilisateur
+WHERE IdUtilisateur IN (
+    SELECT IdUtilisateur
+    FROM Souscription
+    WHERE statut = 'Active'
+);
+
+
+-- Requête 6 : Afficher les séances ayant au moins une réservation
+-- Utilisée dans : interface administrateur
+SELECT *
+FROM Seance
+WHERE IdSeance IN (
+    SELECT DISTINCT IdSeance
+    FROM Reservation
+);
+
+
+
+-- =========================================================
+-- 5. REQUÊTE ENSEMBLISTE (UNION)
+-- =========================================================
+
+-- Requête 7 : Afficher toutes les personnes
+-- (membres + coachs)
+-- Utilisée dans : interface administrateur
+SELECT nom, prenom, 'Utilisateur' AS Type
+FROM Utilisateur
+UNION
+SELECT nom, prenom, 'Coach' AS Type
+FROM Coach;
+
+
+
+-- =========================================================
+-- 6. FONCTIONS D’AGRÉGATION
+-- =========================================================
+
+-- Requête 8 : Nombre total de réservations (COUNT)
+SELECT COUNT(*) AS TotalReservations
+FROM Reservation;
+
+
+-- Requête 9 : Capacité maximale moyenne des séances (AVG)
+SELECT AVG(CapaciteMax) AS CapaciteMoyenne
+FROM Seance;
+
+
+-- Requête 10 : Durée minimale des séances (MIN)
+SELECT MIN(DureeMinutes) AS DureeMin
+FROM Seance;
+
+
+-- Requête 11 : Durée maximale des séances (MAX)
+SELECT MAX(DureeMinutes) AS DureeMax
+FROM Seance;
+
+
+-- Requête 12 : Nombre de séances par coach (GROUP BY)
+SELECT IdCoach, COUNT(*) AS NbSeances
+FROM Seance
+GROUP BY IdCoach;
+
+
+-- Requête 13 : Somme des prix des types d’adhésion (SUM)
+SELECT SUM(prix) AS TotalPrixAdhesions
+FROM TypeAdhesion;
+
+-- =========================================================
+-- FIN DU FICHIER
+-- =========================================================
