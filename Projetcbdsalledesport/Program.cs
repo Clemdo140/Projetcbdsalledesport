@@ -89,7 +89,9 @@ namespace Projetcbdsalledesport
                 // --- ÉTAPE 3 : TON SYSTÈME DE SORTIE ---
                 // Une fois qu'on sort d'un menu (choix 0 dans tes fonctions), on arrive ici
                 Console.Clear();
+                Console.ForegroundColor = ConsoleColor.Yellow;
                 Console.WriteLine("--- SESSION TERMINÉE ---");
+                Console.ResetColor();
                 Console.WriteLine("1) Se reconnecter avec un autre compte");
                 Console.WriteLine("0) Quitter définitivement");
                 Console.Write("\nChoix : ");
@@ -526,7 +528,9 @@ namespace Projetcbdsalledesport
                         while (!retourSalles)
                         {
                             Console.Clear();
+                            Console.ForegroundColor = ConsoleColor.Blue;
                             Console.WriteLine("--- [GESTION DES SALLES] ---");
+                            Console.ResetColor();
                             Console.WriteLine("0) Retour au menu principal");
                             Console.WriteLine("1) Voir la liste des salles");
                             Console.WriteLine("2) Ajouter une nouvelle salle");
@@ -540,7 +544,9 @@ namespace Projetcbdsalledesport
                             {
                                 case "1": // VOIR LES SALLES
                                     Console.Clear();
+                                    Console.ForegroundColor = ConsoleColor.Blue;
                                     Console.WriteLine("--- LISTE DES SALLES ---");
+                                    Console.ResetColor();
 
                                     // On récupère toutes les colonnes de la table Salle
                                     DataTable dtSalles = manager.ExecuterLecture("SELECT * FROM Salle");
@@ -563,7 +569,9 @@ namespace Projetcbdsalledesport
 
                                 case "2": // AJOUTER UNE SALLE
                                     Console.Clear();
+                                    Console.ForegroundColor = ConsoleColor.Blue;
                                     Console.WriteLine("--- AJOUTER UNE SALLE ---");
+                                    Console.ResetColor();
                                     Console.Write("Nom de la salle (ex: Studio A) : "); string nomS = Console.ReadLine();
                                     Console.Write("Capacité maximale : "); string capS = Console.ReadLine();
 
@@ -576,7 +584,9 @@ namespace Projetcbdsalledesport
 
                                 case "3": // SUPPRIMER UNE SALLE
                                     Console.Clear();
+                                    Console.ForegroundColor = ConsoleColor.Blue;
                                     Console.WriteLine("--- SUPPRIMER UNE SALLE ---");
+                                    Console.ResetColor();
                                     Console.Write("Entrez le Nom de la salle à supprimer : ");
                                     string nomSallesuppr = Console.ReadLine();
 
@@ -613,10 +623,11 @@ namespace Projetcbdsalledesport
                 Console.ForegroundColor = ConsoleColor.Cyan;
                 Console.WriteLine("\n--- [INTERFACE STAFF - GESTION DES OPÉRATIONS] ---");
                 Console.ResetColor();
-                Console.WriteLine("1. Valider une inscription (Adhésion)");
-                Console.WriteLine("2. Voir la liste des membres"); // Option utile pour le staff
-                Console.WriteLine("3. Consulter le planning");
-                Console.WriteLine("0. Retour / Déconnexion");
+                Console.WriteLine("0) Retour / Déconnexion");
+                Console.WriteLine("1) Valider une inscription (Adhésion)");
+                Console.WriteLine("2) Voir la liste des membres"); // Option utile pour le staff
+                Console.WriteLine("3) Consulter le planning");
+              
                 Console.Write("\nVotre choix : ");
 
                 string choix = Console.ReadLine();
@@ -741,7 +752,9 @@ namespace Projetcbdsalledesport
 
                     case "2": // RÉSERVER AVEC RÈGLE MÉTIER
                         Console.Clear();
+                        Console.ForegroundColor = ConsoleColor.Blue;
                         Console.WriteLine("--- RÉSERVER UN COURS ---");
+                        Console.ResetColor();
 
                         // 1. VÉRIFICATION DE L'ABONNEMENT (Le membre a-t-il une souscription validée ?)
                         string sqlAbo = $"SELECT statut FROM Souscription WHERE IdUtilisateur = {membre.IdUtilisateur} AND statut = 'Validée'";
@@ -749,7 +762,9 @@ namespace Projetcbdsalledesport
 
                         if (dtAbo.Rows.Count == 0)
                         {
+                            Console.ForegroundColor = ConsoleColor.Red;
                             Console.WriteLine("\n❌ Accès refusé : Vous devez avoir un abonnement validé par le staff pour réserver.");
+                            Console.ResetColor();
                             Console.WriteLine("Consultez l'accueil pour régulariser votre situation.");
                             Console.ReadKey();
                             break;
@@ -783,7 +798,9 @@ namespace Projetcbdsalledesport
 
                                 if (existeDeja > 0)
                                 {
+                                    Console.ForegroundColor = ConsoleColor.Red;
                                     Console.WriteLine("\n❌ Vous avez déjà réservé cette séance !");
+                                    Console.ResetColor();
                                 }
                                 else
                                 {
@@ -797,7 +814,9 @@ namespace Projetcbdsalledesport
 
                                     if (conflit > 0)
                                     {
+                                        Console.ForegroundColor = ConsoleColor.Red;
                                         Console.WriteLine("\n❌ Conflit d'horaire : Vous avez déjà une réservation à ce moment-là !");
+                                        Console.ResetColor();
                                     }
                                     else
                                     {
@@ -811,11 +830,16 @@ namespace Projetcbdsalledesport
                                                                  $"VALUES ({membre.IdUtilisateur}, {idChoisi}, NOW())";
 
                                             manager.ExecuterAction(sqlReserver);
+                                            Console.ForegroundColor = ConsoleColor.Green;
                                             Console.WriteLine("\n✅ Réservation confirmée !");
+                                            Console.ResetColor();
                                         }
                                         else
+
                                         {
+                                            Console.ForegroundColor = ConsoleColor.Red;
                                             Console.WriteLine("\n❌ Ce cours est complet.");
+                                            Console.ResetColor();
                                         }
                                     }
                                 }
@@ -862,11 +886,15 @@ namespace Projetcbdsalledesport
                                     string sqlAnnuler = $"DELETE FROM Reservation WHERE IdReservation = {idReservation} AND IdUtilisateur = {membre.IdUtilisateur}";
 
                                     manager.ExecuterAction(sqlAnnuler);
+                                    Console.ForegroundColor = ConsoleColor.Green;
                                     Console.WriteLine("\n✅ Réservation annulée avec succès.");
+                                    Console.ResetColor();
                                 }
                                 else
                                 {
+                                    Console.ForegroundColor = ConsoleColor.Red;
                                     Console.WriteLine("\n❌ Erreur : Veuillez entrer un ID numérique valide (ex: 4).");
+                                    Console.ResetColor();
                                 }
                             }
                         }
@@ -904,8 +932,9 @@ namespace Projetcbdsalledesport
                                              $"VALUES ('{dateDebut}', '{dateFin}', 'En attente', {membre.IdUtilisateur}, {choixAdh})";
 
                         manager.ExecuterAction(sqlSouscrire);
-
+                        Console.ForegroundColor = ConsoleColor.Green;
                         Console.WriteLine("\n✅ Demande envoyée ! Veuillez vous présenter à l'accueil pour le règlement.");
+                        Console.ResetColor();
                         Console.ReadKey();
                         break;
 
@@ -922,7 +951,9 @@ namespace Projetcbdsalledesport
         static void ValiderInscription(CommandeManager manager)
         {
             Console.Clear();
+            Console.ForegroundColor = ConsoleColor.Blue;
             Console.WriteLine("--- LISTE DES SOUSCRIPTIONS EN ATTENTE ---");
+            Console.ResetColor();
 
             // On affiche les souscriptions qui ne sont pas encore validées
             string sql = "SELECT s.IdSouscription, u.nom, u.prenom FROM Souscription s " +
