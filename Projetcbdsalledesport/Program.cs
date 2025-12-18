@@ -11,6 +11,7 @@ namespace Projetcbdsalledesport
     {
         static void Main(string[] args)
         {
+            Console.OutputEncoding = Encoding.UTF8;//caracteres spéciaux    
             //Initialisation de la connexion
             string connectionString = "Server=localhost;Database=SalleDeSport;Uid=AppUser;Pwd=MdpAppUser;";
             CommandeManager manager = new CommandeManager(connectionString, 0, "");//On crée le manager pour la première fois mais comme personne n'est connecté, on met le privilège à 0 et le mot de passe est vide
@@ -399,7 +400,7 @@ namespace Projetcbdsalledesport
                             Console.ForegroundColor = ConsoleColor.Blue;
                             Console.WriteLine("--- [GESTION DES COURS ET PLANNING] ---");
                             Console.ResetColor();
-                            Console.WriteLine("0. Retour au menu principal");
+                            Console.WriteLine("0) Retour au menu principal");
                             Console.WriteLine("1) Voir le planning des cours");
                             Console.WriteLine("2) Enregistrer un nouveau cours");
                             Console.WriteLine("3) Supprimer (Annuler) un cours");
@@ -412,28 +413,49 @@ namespace Projetcbdsalledesport
                             {
                                 case "1": // VOIR LES COURS
                                     Console.Clear();
-                                    Console.ForegroundColor = ConsoleColor.Blue;
-                                    Console.WriteLine("--- PLANNING ACTUEL ---");
+                                    Console.ForegroundColor = ConsoleColor.Blue;    
+                                    Console.WriteLine("--- PLANNING ACTUEL DÉTAILLÉ ---");
                                     Console.ResetColor();
-                                    // On fait une JOINTURE (Join) pour afficher le nom du coach et de la salle au lieu de simples IDs
-                                    string sqlPlanning = @"SELECT S.IdSeance, T.NomCours, S.DateDebut, S.CapaciteMax, 
-                                                         C.nom as NomCoach, Sa.nomSalle as NomSalle 
-                                                  FROM Seance S 
-                                                  JOIN TypeCours T ON S.IdCours = T.IdCours 
-                                                  JOIN Coach C ON S.IdCoach = C.IdCoach 
-                                                  JOIN Salle Sa ON S.idSalle = Sa.idSalle";
 
-                                    DataTable dtP = manager.ExecuterLecture(sqlPlanning);
-                                    if (dtP.Rows.Count > 0)
+                                    // Requête avec jointures vers TypeCours, Coach et Salle + comptage des places
+                                    string sqlPlanningComplet = @"
+                                        SELECT 
+                                            S.IdSeance, 
+                                            T.NomCours AS nomC, 
+                                            S.DateDebut, 
+                                            S.CapaciteMax,
+                                            C.prenom AS PrenomCoach, C.nom AS NomCoach,
+                                            Sa.nomSalle,
+                                            (SELECT COUNT(*) FROM Reservation R WHERE R.IdSeance = S.IdSeance) AS NbInscrits
+                                        FROM Seance S 
+                                        JOIN TypeCours T ON S.IdCours = T.IdCours
+                                        JOIN Coach C ON S.IdCoach = C.IdCoach
+                                        JOIN Salle Sa ON S.idSalle = Sa.idSalle
+                                        ORDER BY S.DateDebut";
+
+                                    DataTable dt = manager.ExecuterLecture(sqlPlanningComplet);
+
+                                    if (dt.Rows.Count > 0)
                                     {
-                                        foreach (DataRow r in dtP.Rows)
+                                        foreach (DataRow row in dt.Rows)
                                         {
-                                            Console.WriteLine($"ID: {r["IdSeance"]} | Cours: {r["nomC"]} | Horaire: {r["horaire"]}");
-                                            Console.WriteLine($"   Coach: {r["NomCoach"]} | Salle: {r["NomSalle"]} | Max: {r["CapaciteMax"]} pers.");
-                                            Console.WriteLine("---------------------------------------------------------");
+                                            int max = Convert.ToInt32(row["CapaciteMax"]);
+                                            int restantes = max - Convert.ToInt32(row["NbInscrits"]);
+
+                                            Console.WriteLine($"ID: {row["IdSeance"]} | Cours: {row["nomC"]}");
+                                            Console.WriteLine($"   Salle    : {row["nomSalle"]}");
+                                            Console.WriteLine($"   Coach    : {row["PrenomCoach"]} {row["NomCoach"]}");
+                                            Console.WriteLine($"   Horaire  : {row["DateDebut"]}");
+                                            Console.WriteLine($"   Places   : {restantes} restantes sur {max}");
+                                            Console.WriteLine("---------------------------------------------------");
                                         }
                                     }
-                                    else Console.WriteLine("Aucun cours enregistré.");
+                                    else
+                                    {
+                                        Console.WriteLine("Aucune séance de prévue.");
+                                    }
+
+                                    Console.WriteLine("\nAppuyez sur une touche pour revenir...");
                                     Console.ReadKey();
                                     break;
 
@@ -607,21 +629,35 @@ namespace Projetcbdsalledesport
                     case "2":
                         Console.Clear();
                         Console.ForegroundColor = ConsoleColor.Blue;
-                        Console.WriteLine("--- LISTE DES MEMBRES ENREGISTRÉS ---");
+                        Console.WriteLine("--- LISTE DES MEMBRES ET ABONNEMENTS ---");
                         Console.ResetColor();
-                        // On récupère les utilisateurs ayant le rôle de 'Membre' (IdRole = 3 d'après ton SQL)
-                        DataTable dt = manager.ExecuterLecture("SELECT nom, prenom, email, telephone FROM Utilisateur WHERE IdRole = 3");
 
-                        if (dt.Rows.Count > 0)
+                        // Requête avec jointures : 
+                        // LEFT JOIN est important ici pour afficher même les membres qui n'ont pas encore d'abonnement
+                        string sqlMembresAdh = @"SELECT U.nom, U.prenom, U.email, T.libelle as NomForfait, S.statut
+                             FROM Utilisateur U
+                             LEFT JOIN Souscription S ON U.IdUtilisateur = S.IdUtilisateur
+                             LEFT JOIN TypeAdhesion T ON S.IdTypeAdhesion = T.IdTypeAdhesion
+                             WHERE U.IdRole = 3"; // On ne filtre que les membres
+
+                        DataTable dtMembres = manager.ExecuterLecture(sqlMembresAdh);
+
+                        if (dtMembres.Rows.Count > 0)
                         {
-                            foreach (DataRow row in dt.Rows)
+                            foreach (DataRow row in dtMembres.Rows)
                             {
-                                Console.WriteLine($"- {row["nom"].ToString().ToUpper()} {row["prenom"]} | Email: {row["email"]} | Tel: {row["telephone"]}");
+                                // Vérification si le forfait est nul (cas où le membre n'a pas encore choisi d'abonnement)
+                                string forfait = row["NomForfait"] == DBNull.Value ? "Aucun" : row["NomForfait"].ToString();
+                                string statut = row["statut"] == DBNull.Value ? "N/A" : row["statut"].ToString();
+
+                                Console.WriteLine($"- {row["nom"].ToString().ToUpper()} {row["prenom"]} | Email: {row["email"]}");
+                                Console.WriteLine($"  Abonnement: {forfait} (Statut: {statut})");
+                                Console.WriteLine("------------------------------------------------------------------------");
                             }
                         }
                         else
                         {
-                            Console.WriteLine("Aucun membre trouvé dans la base.");
+                            Console.WriteLine("Aucun membre enregistré.");
                         }
                         Console.WriteLine("\nAppuyez sur une touche pour revenir...");
                         Console.ReadKey();
@@ -705,36 +741,89 @@ namespace Projetcbdsalledesport
 
                     case "2": // RÉSERVER AVEC RÈGLE MÉTIER
                         Console.Clear();
-                        Console.ForegroundColor = ConsoleColor.Blue;
-                        Console.WriteLine("--- RÉSERVATION D'UNE SÉANCE ---");
-                        Console.ResetColor();
-                        Console.Write("Entrez l'ID du cours souhaité : ");
-                        string idC = Console.ReadLine();
-                        if (string.IsNullOrEmpty(idC))
+                        Console.WriteLine("--- RÉSERVER UN COURS ---");
+
+                        // 1. VÉRIFICATION DE L'ABONNEMENT (Le membre a-t-il une souscription validée ?)
+                        string sqlAbo = $"SELECT statut FROM Souscription WHERE IdUtilisateur = {membre.IdUtilisateur} AND statut = 'Validée'";
+                        DataTable dtAbo = manager.ExecuterLecture(sqlAbo);
+
+                        if (dtAbo.Rows.Count == 0)
                         {
-                            Console.WriteLine("Erreur : Vous devez saisir un ID valide.");
+                            Console.WriteLine("\n❌ Accès refusé : Vous devez avoir un abonnement validé par le staff pour réserver.");
+                            Console.WriteLine("Consultez l'accueil pour régulariser votre situation.");
                             Console.ReadKey();
                             break;
                         }
-                        // RÈGLE MÉTIER : Vérification de la capacité en temps réel
-                        // On compte les réservations déjà existantes pour cette séance
-                        int inscrits = Convert.ToInt32(manager.ExecuterCalcul($"SELECT COUNT(*) FROM Reservation WHERE IdSeance = {idC}"));
-                        int max = Convert.ToInt32(manager.ExecuterCalcul($"SELECT CapaciteMax FROM Seance WHERE IdSeance = {idC}"));
 
-                        if (inscrits < max)
+                        // 2. AFFICHAGE DES COURS AVEC PLACES RESTANTES
+                        string sqlDispo = @"SELECT S.IdSeance, T.NomCours, S.DateDebut, S.CapaciteMax,
+                        (SELECT COUNT(*) FROM Reservation R WHERE R.IdSeance = S.IdSeance) as Inscrits
+                        FROM Seance S
+                        JOIN TypeCours T ON S.IdCours = T.IdCours";
+
+                        DataTable dtDispo = manager.ExecuterLecture(sqlDispo);
+
+                        foreach (DataRow r in dtDispo.Rows)
                         {
-                            // Insertion de la réservation (NOW() pour MySQL)
-                            manager.ExecuterAction($"INSERT INTO Reservation (IdUtilisateur, IdSeance, DateReservation) VALUES ({membre.IdUtilisateur}, {idC}, NOW())");
-                            Console.ForegroundColor = ConsoleColor.Green;
-                            Console.WriteLine("\nSUCCÈS : Réservation confirmée !");
-                            Console.ResetColor();
+                            int placesLibres = Convert.ToInt32(r["CapaciteMax"]) - Convert.ToInt32(r["Inscrits"]);
+                            Console.WriteLine($"ID: {r["IdSeance"]} | {r["NomCours"]} le {r["DateDebut"]} | Libres: {placesLibres}/{r["CapaciteMax"]}");
                         }
-                        else
+
+                        Console.Write("\nEntrez l'ID de la séance choisie : ");
+                        if (int.TryParse(Console.ReadLine(), out int idChoisi))
                         {
-                            Console.ForegroundColor = ConsoleColor.Red;
-                            Console.WriteLine("\nERREUR : Ce cours est complet (Capacité max atteinte).");
-                            Console.ResetColor();
+                            DataRow[] coursSelect = dtDispo.Select($"IdSeance = {idChoisi}");
+
+                            if (coursSelect.Length > 0)
+                            {
+                                // --- A. VÉRIFICATION : DOUBLON (Déjà réservé ?) ---
+                                string sqlDoublon = $@"SELECT COUNT(*) FROM Reservation 
+                                   WHERE IdUtilisateur = {membre.IdUtilisateur} AND IdSeance = {idChoisi}";
+                                int existeDeja = Convert.ToInt32(manager.ExecuterLecture(sqlDoublon).Rows[0][0]);
+
+                                if (existeDeja > 0)
+                                {
+                                    Console.WriteLine("\n❌ Vous avez déjà réservé cette séance !");
+                                }
+                                else
+                                {
+                                    // --- B. VÉRIFICATION : CONFLIT D'HORAIRE (Un autre cours à la même heure ?) ---
+                                    string heureVoulue = Convert.ToDateTime(coursSelect[0]["DateDebut"]).ToString("yyyy-MM-dd HH:mm:ss");
+                                    string sqlConflit = $@"SELECT COUNT(*) FROM Reservation R
+                                       JOIN Seance S ON R.IdSeance = S.IdSeance
+                                       WHERE R.IdUtilisateur = {membre.IdUtilisateur} 
+                                       AND S.DateDebut = '{heureVoulue}'";
+                                    int conflit = Convert.ToInt32(manager.ExecuterLecture(sqlConflit).Rows[0][0]);
+
+                                    if (conflit > 0)
+                                    {
+                                        Console.WriteLine("\n❌ Conflit d'horaire : Vous avez déjà une réservation à ce moment-là !");
+                                    }
+                                    else
+                                    {
+                                        // --- C. VÉRIFICATION : CAPACITÉ (Reste-t-il des places ?) ---
+                                        int inscrits = Convert.ToInt32(coursSelect[0]["Inscrits"]);
+                                        int max = Convert.ToInt32(coursSelect[0]["CapaciteMax"]);
+
+                                        if (inscrits < max)
+                                        {
+                                            string sqlReserver = $"INSERT INTO Reservation (IdUtilisateur, IdSeance, dateReservation) " +
+                                                                 $"VALUES ({membre.IdUtilisateur}, {idChoisi}, NOW())";
+
+                                            manager.ExecuterAction(sqlReserver);
+                                            Console.WriteLine("\n✅ Réservation confirmée !");
+                                        }
+                                        else
+                                        {
+                                            Console.WriteLine("\n❌ Ce cours est complet.");
+                                        }
+                                    }
+                                }
+                            }
+                            else Console.WriteLine("\n❌ ID de séance invalide.");
                         }
+
+                        Console.WriteLine("\nAppuyez sur une touche pour continuer...");
                         Console.ReadKey();
                         break;
 
@@ -743,29 +832,50 @@ namespace Projetcbdsalledesport
                         Console.ForegroundColor = ConsoleColor.Blue;
                         Console.WriteLine("--- MES RÉSERVATIONS ---");
                         Console.ResetColor();
-                        string sqlMesRes = $@"SELECT R.IdReservation, T.nomCours, S.DateDebut 
-                                     FROM Reservation R 
-                                     JOIN Seance S ON R.IdSeance = S.IdSeance 
-                                     JOIN TypeCours T ON S.IdCours = T.IdCours 
-                                     WHERE R.IdUtilisateur = {membre.IdUtilisateur}";
 
-                        DataTable dtM = manager.ExecuterLecture(sqlMesRes);
-                        if (dtM.Rows.Count > 0)
+                        // 1. Affichage des réservations actuelles
+                        string sqlMesResas = $@"SELECT R.IdReservation, T.NomCours, S.DateDebut 
+                           FROM Reservation R
+                           JOIN Seance S ON R.IdSeance = S.IdSeance
+                           JOIN TypeCours T ON S.IdCours = T.IdCours
+                           WHERE R.IdUtilisateur = {membre.IdUtilisateur}";
+
+                        DataTable dtMesResas = manager.ExecuterLecture(sqlMesResas);
+
+                        if (dtMesResas.Rows.Count > 0)
                         {
-                            foreach (DataRow r in dtM.Rows)
+                            foreach (DataRow row in dtMesResas.Rows)
                             {
-                                Console.WriteLine($"- ID Réservation : {r["IdReservation"]} | Cours : {r["nomCours"]} à {r["DateDebut"]}");
+                                Console.WriteLine($"- ID Réservation : {row["IdReservation"]} | Cours : {row["NomCours"]} à {row["DateDebut"]}");
                             }
 
-                            Console.Write("\nSouhaitez-vous annuler une réservation ? (Entrez l'ID ou 'N') : ");
-                            string idAnnul = Console.ReadLine();
-                            if (idAnnul.ToUpper() != "N")
+                            Console.Write("\nSouhaitez-vous annuler une réservation ? (Entrez l'ID ou 'N' pour quitter) : ");
+                            string saisie = Console.ReadLine();
+
+                            // 2. GESTION DE L'ERREUR DE SAISIE
+                            if (saisie.ToUpper() != "N")
                             {
-                                manager.ExecuterAction($"DELETE FROM Reservation WHERE IdReservation = {idAnnul} AND IdUtilisateur = {membre.IdUtilisateur}");
-                                Console.WriteLine("Réservation annulée avec succès.");
+                                // On vérifie si la saisie est bien un nombre entier
+                                if (int.TryParse(saisie, out int idReservation))
+                                {
+                                    // On vérifie aussi que cette réservation appartient bien au membre connecté (SÉCURITÉ)
+                                    string sqlAnnuler = $"DELETE FROM Reservation WHERE IdReservation = {idReservation} AND IdUtilisateur = {membre.IdUtilisateur}";
+
+                                    manager.ExecuterAction(sqlAnnuler);
+                                    Console.WriteLine("\n✅ Réservation annulée avec succès.");
+                                }
+                                else
+                                {
+                                    Console.WriteLine("\n❌ Erreur : Veuillez entrer un ID numérique valide (ex: 4).");
+                                }
                             }
                         }
-                        else Console.WriteLine("Vous n'avez aucune réservation en cours.");
+                        else
+                        {
+                            Console.WriteLine("Vous n'avez aucune réservation.");
+                        }
+
+                        Console.WriteLine("\nAppuyez sur une touche pour continuer...");
                         Console.ReadKey();
                         break;
 
