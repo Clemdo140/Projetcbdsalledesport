@@ -17,7 +17,7 @@ namespace Projetcbdsalledesport
             bool applicationEnCours = true;
             while (applicationEnCours) { 
                 Utilisateur utilisateurConnecte = null;//null permet donc d'afficher l'écran de connexion
-
+                manager = new CommandeManager("AppUser", 0, "MdpAppUser");
 
                 while (utilisateurConnecte == null)
                 {
@@ -35,10 +35,8 @@ namespace Projetcbdsalledesport
                     Console.Write("Saisisez votre mot de passe : ");
                     string mdpSaisi = Console.ReadLine();
                     utilisateurConnecte = Authentification.Login(emailSaisi, mdpSaisi, manager);//on l'envoie à la classe Authentification qui va vérifier si le couple email-mdp existe bien dans la base
-                    if (utilisateurConnecte == null)//si personne n'est connecté
-                    {
-
-                        if (utilisateurConnecte == null)
+                   
+                        if (utilisateurConnecte == null)//si personne n'est connecté
                         {
                             Console.ForegroundColor = ConsoleColor.Red;
                             Console.WriteLine("Identifiants incorrects. Réessayez.");
@@ -48,11 +46,32 @@ namespace Projetcbdsalledesport
                         else
                         {
 
-                            manager = new CommandeManager(connectionString, utilisateurConnecte.RoleUtilisateur.IdRole, mdpSaisi);//on écrase le manager par défaut et on le remplace par un avec les infos saisies
-                            Console.WriteLine($"\nBienvenue {utilisateurConnecte.Prenom} !");
+                        string dbUser = "AppUser";
+                        string dbPass = "MdpAppUser";
+
+                      
+
+                        if (utilisateurConnecte.RoleUtilisateur.Fonction == "Gérant")
+                        {
+                            dbUser = "AdminPrincipal";
+                            dbPass = "MdpAdminPrincipal";
                         }
+                        else if (utilisateurConnecte.RoleUtilisateur.Fonction == "Staff")
+                        {
+                            dbUser = "AdminSecondaire";
+                            dbPass = "MdpAdminSecondaire";
+                        }
+                        // Pour les membres, dbUser reste "AppUser" par défaut
+
+                        // 2. Initialiser le manager avec le compte SQL correct
+                        // On ne passe plus 'utilisateurConnecte.Nom', mais 'dbUser'
+                        manager = new CommandeManager(dbUser, utilisateurConnecte.RoleUtilisateur.IdRole, dbPass);
+
+                        Console.WriteLine($"\nBienvenue {utilisateurConnecte.Prenom} !");
                     }
+                    
                 }
+             
                 if (utilisateurConnecte.RoleUtilisateur.Fonction == "Gérant")
                 {
                     MenuAdminPrincipal(manager); // Ton interface Gérant
@@ -139,7 +158,7 @@ namespace Projetcbdsalledesport
             while (!retour)
             {
                 Console.Clear();
-                Console.ForegroundColor = ConsoleColor.Blue;
+                Console.ForegroundColor = ConsoleColor.Cyan;
                 Console.WriteLine("--- [INTERFACE GÉRANT - PRIVILÈGE TOTAL] ---");
                 Console.ResetColor();
                 Console.WriteLine();
@@ -276,8 +295,10 @@ namespace Projetcbdsalledesport
                         while (!retourCoachs)
                         {
                             Console.Clear();
-                            Console.WriteLine("0) Retour au menu principal");
+                            Console.ForegroundColor = ConsoleColor.Blue;
                             Console.WriteLine("--- [GESTION DES COACHS] ---");
+                            Console.ResetColor();
+                            Console.WriteLine("0) Retour au menu principal");
                             Console.WriteLine("1) Voir la liste des coachs");
                             Console.WriteLine("2) Ajouter un nouveau coach");
                             Console.WriteLine("3) Supprimer un coach");
@@ -348,7 +369,7 @@ namespace Projetcbdsalledesport
 
                                     if (existe > 0)
                                     {
-                                        Console.WriteLine($"\nVoulez-vous vraiment supprimer le coach {nomASupprimer} ? (O/N)");
+                                        Console.WriteLine($"\nVoulez-vous vraiment supprimer le coach {nomASupprimer} ? Tapez Oui");
                                         if (Console.ReadLine().ToUpper() == "O")
                                         {
                                             manager.ExecuterAction($"DELETE FROM Coach WHERE nom = '{nomASupprimer}'");
@@ -560,13 +581,76 @@ namespace Projetcbdsalledesport
             bool retour = false;
             while (!retour)
             {
-                Console.WriteLine("\n--- MENU STAFF (NIVEAU 2) ---");
+                Console.Clear();
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                Console.WriteLine("\n--- [INTERFACE STAFF - GESTION DES OPÉRATIONS] ---");
+                Console.ResetColor();
                 Console.WriteLine("1. Valider une inscription (Adhésion)");
-                Console.WriteLine("2. Modifier informations d'un membre");
+                Console.WriteLine("2. Voir la liste des membres"); // Option utile pour le staff
                 Console.WriteLine("3. Consulter le planning");
-                Console.WriteLine("0. Retour");
+                Console.WriteLine("0. Retour / Déconnexion");
+                Console.Write("\nVotre choix : ");
 
-                if (Console.ReadLine() == "0") retour = true;
+                string choix = Console.ReadLine();
+
+                switch (choix)
+                {
+                    case "1":
+                        ValiderInscription(manager);
+                        break;
+                    case "2":
+                        Console.Clear();
+                        Console.ForegroundColor = ConsoleColor.Blue;
+                        Console.WriteLine("--- LISTE DES MEMBRES ENREGISTRÉS ---");
+                        Console.ResetColor();
+                        // On récupère les utilisateurs ayant le rôle de 'Membre' (IdRole = 3 d'après ton SQL)
+                        DataTable dt = manager.ExecuterLecture("SELECT nom, prenom, email, telephone FROM Utilisateur WHERE IdRole = 3");
+
+                        if (dt.Rows.Count > 0)
+                        {
+                            foreach (DataRow row in dt.Rows)
+                            {
+                                Console.WriteLine($"- {row["nom"].ToString().ToUpper()} {row["prenom"]} | Email: {row["email"]} | Tel: {row["telephone"]}");
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine("Aucun membre trouvé dans la base.");
+                        }
+                        Console.WriteLine("\nAppuyez sur une touche pour revenir...");
+                        Console.ReadKey();
+                        break;
+
+                    case "3":
+                        Console.Clear();
+                        Console.WriteLine("--- PLANNING DES SÉANCES ---");
+
+                        // On fait une jointure pour récupérer le nom du cours depuis la table TypeCours
+                        string sqlPlanning = @"SELECT T.NomCours, S.DateDebut 
+                          FROM Seance S 
+                          JOIN TypeCours T ON S.IdCours = T.IdCours";
+
+                        DataTable dtP = manager.ExecuterLecture(sqlPlanning);
+
+                        if (dtP.Rows.Count > 0)
+                        {
+                            foreach (DataRow r in dtP.Rows)
+                            {
+                                // Attention : utilisez "NomCours" (majuscules/minuscules) tel quel dans le SELECT
+                                Console.WriteLine($"- {r["NomCours"]} prévu le : {r["DateDebut"]}");
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine("Aucune séance au planning.");
+                        }
+                        Console.WriteLine("\nAppuyez sur une touche pour revenir...");
+                        Console.ReadKey();
+                        break;
+                    case "0":
+                        retour = true;
+                        break;
+                }
             }
         }
         static void MenuMembre(CommandeManager manager, Utilisateur membre)
@@ -575,7 +659,7 @@ namespace Projetcbdsalledesport
             while (!retour)
             {
                 Console.Clear();
-                Console.ForegroundColor = ConsoleColor.Blue;
+                Console.ForegroundColor = ConsoleColor.Cyan;
                 Console.WriteLine($"--- ESPACE MEMBRE (Connecté en tant que : {membre.Prenom} {membre.Nom}) ---");
                 Console.ResetColor();
                 Console.WriteLine("1. Voir le planning des cours (Détails, Intensité, Niveau)");
@@ -685,6 +769,36 @@ namespace Projetcbdsalledesport
                         break;
                 }
             }
+        }
+        static void ValiderInscription(CommandeManager manager)
+        {
+            Console.Clear();
+            Console.WriteLine("--- LISTE DES SOUSCRIPTIONS EN ATTENTE ---");
+
+            // On affiche les souscriptions qui ne sont pas encore validées
+            string sql = "SELECT s.IdSouscription, u.nom, u.prenom FROM Souscription s " +
+                         "JOIN Utilisateur u ON s.IdUtilisateur = u.IdUtilisateur " +
+                         "WHERE s.statut = 'En attente'";
+
+            DataTable dt = manager.ExecuterLecture(sql);
+
+            if (dt.Rows.Count > 0)
+            {
+                foreach (DataRow r in dt.Rows)
+                    Console.WriteLine($"ID: {r["IdSouscription"]} | Membre: {r["nom"]} {r["prenom"]}");
+
+                Console.Write("\nEntrez l'ID de la souscription à valider : ");
+                string id = Console.ReadLine();
+
+                // Mise à jour du statut dans la base de données
+                manager.ExecuterAction($"UPDATE Souscription SET statut = 'Validée' WHERE IdSouscription = {id}");
+                Console.WriteLine("Souscription validée avec succès !");
+            }
+            else
+            {
+                Console.WriteLine("Aucune inscription en attente.");
+            }
+            Console.ReadKey();
         }
     }
 }
