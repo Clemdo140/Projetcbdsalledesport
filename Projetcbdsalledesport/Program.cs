@@ -1,8 +1,10 @@
-﻿using System;
+﻿using MySqlX.XDevAPI.Common;
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Projetcbdsalledesport
@@ -118,12 +120,12 @@ namespace Projetcbdsalledesport
             int nbMembres = Convert.ToInt32(manager.ExecuterCalcul("SELECT COUNT(*) FROM Utilisateur WHERE IdRole = 3"));
 
             // 2. Le cours le plus populaire (celui qui a le plus de réservations)
-            string sqlPop = @"SELECT T.nomCours, COUNT(*) as Total 
-                  FROM Reservation R
-                  JOIN Seance S ON R.IdSeance = S.IdSeance 
-                  JOIN TypeCours T ON S.IdCours = T.IdCours
-                  GROUP BY T.nomCours 
-                  ORDER BY Total DESC LIMIT 1";
+            string sqlPop = @"SELECT T.NomCours AS nomC, 
+                               COUNT(R.IdReservation) AS NbParticipants
+                        FROM TypeCours T
+                        LEFT JOIN Seance S ON T.IdCours = S.IdCours
+                        LEFT JOIN Reservation R ON S.IdSeance = R.IdSeance
+                        GROUP BY T.NomCours";
             DataTable dtPop = manager.ExecuterLecture(sqlPop);
             string coursPop = dtPop.Rows.Count > 0 ? dtPop.Rows[0]["nomC"].ToString() : "Aucun";
 
@@ -168,7 +170,7 @@ namespace Projetcbdsalledesport
                 Console.WriteLine("\nVeuillez choisir une option :");
                 Console.WriteLine("0) Retour au menu de déconnexion");
                 Console.WriteLine("1) Consulter les Rapports (Interface Évaluation)"); 
-                Console.WriteLine("2) Gestion complète des Membres (Ajout/Modif/Suppr)");
+                Console.WriteLine("2) Gestion complète des Membres");
                 Console.WriteLine("3) Gestion des Coachs");
                 Console.WriteLine("4) Gestion des Cours et Tarifs");
                 Console.WriteLine("5) Gestion des Salles");
@@ -228,24 +230,28 @@ namespace Projetcbdsalledesport
                                     break;
 
                                 case "2": // AJOUTER UN MEMBRE
+                                case "inscription": // Ou votre case correspondant à l'inscription
                                     Console.Clear();
                                     Console.ForegroundColor = ConsoleColor.Blue;
                                     Console.WriteLine("--- FORMULAIRE D'INSCRIPTION ---");
                                     Console.ResetColor();
-                                    Console.Write("Nom : "); string nom = Console.ReadLine();
-                                    Console.Write("Prénom : "); string prenom = Console.ReadLine();
-                                    Console.Write("Email : "); string email = Console.ReadLine();
-                                    Console.Write("Mot de passe : "); string mdpMembre = Console.ReadLine();
-                                    Console.Write("Téléphone : "); string tel = Console.ReadLine();
 
-                                    // Requête SQL pour insérer le membre (IdRole 3 = Membre)
-                                    // Note : On utilise NOW() pour la date d'inscription en MySQL
+                                    // Utilisation d'une fonction interne pour valider que ce n'est pas vide
+                                    string nom = SaisirChampObligatoire("Nom");
+                                    string prenom = SaisirChampObligatoire("Prénom");
+                                    string email = SaisirChampObligatoire("Email");
+                                    string mdpMembre = SaisirChampObligatoire("Mot de passe");
+                                    string tel = SaisirChampObligatoire("Téléphone");
+
+                                    // Requête SQL sécurisée
                                     string sqlPerso = $"INSERT INTO Utilisateur (nom, prenom, email, motDePasse, telephone, IdRole) " +
                                                       $"VALUES ('{nom}', '{prenom}', '{email}', '{mdpMembre}', '{tel}', 3)";
 
                                     manager.ExecuterAction(sqlPerso);
 
-                                    Console.WriteLine("\nMembre ajouté avec succès dans la base MySQL !");
+                                    Console.ForegroundColor = ConsoleColor.Green;
+                                    Console.WriteLine("\n✅ Membre ajouté avec succès !");
+                                    Console.ResetColor();
                                     Console.WriteLine("Appuyez sur une touche pour continuer...");
                                     Console.ReadKey();
                                     break;
@@ -255,34 +261,62 @@ namespace Projetcbdsalledesport
                                     Console.ForegroundColor = ConsoleColor.Blue;
                                     Console.WriteLine("--- SUPPRESSION D'UN MEMBRE ---");
                                     Console.ResetColor();
+
                                     Console.Write("Entrez l'Email du membre à supprimer : ");
-                                    string emailASupprimer = Console.ReadLine();
+                                    string emailSuppr = Console.ReadLine()?.Trim();
 
-                                    // On vérifie d'abord si le membre existe pour éviter de supprimer n'importe quoi
-                                    string sqlVerif = $"SELECT COUNT(*) FROM Utilisateur WHERE email = '{emailASupprimer}' AND IdRole = 3";
-                                    int existe = Convert.ToInt32(manager.ExecuterCalcul(sqlVerif));
-
-                                    if (existe > 0)
+                                    // 1. On vérifie d'abord si la saisie est vide
+                                    if (string.IsNullOrEmpty(emailSuppr))
                                     {
-                                        Console.WriteLine($"\nÊtes-vous sûr de vouloir supprimer {emailASupprimer} ? Taper O");
+                                        Console.ForegroundColor = ConsoleColor.Red;
+                                        Console.WriteLine("⚠️ Erreur : Vous devez saisir un email pour effectuer une recherche.");
+                                        Console.ResetColor();
+                                        Thread.Sleep(2000);
+                                        break; // On sort du case pour revenir au menu
+                                    }
+
+                                    // 2. Récupérer l'ID de l'utilisateur à partir de l'email
+                                    string sqlGetId = $"SELECT IdUtilisateur FROM Utilisateur WHERE email = '{emailSuppr}'";
+                                    DataTable dtU = manager.ExecuterLecture(sqlGetId);
+
+                                    // 3. On vérifie si l'utilisateur existe
+                                    if (dtU.Rows.Count > 0)
+                                    {
+                                        int idAuteur = Convert.ToInt32(dtU.Rows[0]["IdUtilisateur"]);
+                                        Console.ForegroundColor = ConsoleColor.Yellow;
+                                        Console.Write($"\nÊtes-vous sûr de vouloir supprimer {emailSuppr} ?\n(Taper 'O' pour confirmer ou n'importe quelle touche pour annuler) : ");
+                                        Console.ResetColor();
+
                                         if (Console.ReadLine().ToUpper() == "O")
                                         {
-                                            // Requête de suppression
-                                            string sqlDelete = $"DELETE FROM Utilisateur WHERE email = '{emailASupprimer}'";
-                                            manager.ExecuterAction(sqlDelete);
-                                            Console.WriteLine("\nMembre supprimé avec succès.");
+                                            Console.Write("\nSuppression en cours...");
+                                            Thread.Sleep(1000);
+
+                                            // Suppression des données liées (Enfants)
+                                            manager.ExecuterAction($"DELETE FROM Reservation WHERE IdUtilisateur = {idAuteur}");
+                                            manager.ExecuterAction($"DELETE FROM Souscription WHERE IdUtilisateur = {idAuteur}");
+
+                                            // Suppression de l'utilisateur (Parent)
+                                            manager.ExecuterAction($"DELETE FROM Utilisateur WHERE IdUtilisateur = {idAuteur}");
+
+                                            Console.ForegroundColor = ConsoleColor.Green;
+                                            Console.WriteLine("\n✅ Membre supprimé avec succès.");
+                                            Console.ResetColor();
+                                            Thread.Sleep(1500);
                                         }
                                         else
                                         {
-                                            Console.WriteLine("\nSuppression annulée.");
+                                            Console.WriteLine("\nOpération annulée.");
+                                            Thread.Sleep(1000);
                                         }
                                     }
                                     else
                                     {
-                                        Console.WriteLine("\nErreur : Aucun membre trouvé avec cet email.");
+                                        Console.ForegroundColor = ConsoleColor.Red;
+                                        Console.WriteLine($"\n❌ Aucun utilisateur trouvé avec l'email : {emailSuppr}");
+                                        Console.ResetColor();
+                                        Thread.Sleep(2000);
                                     }
-                                    Console.WriteLine("\nAppuyez sur une touche...");
-                                    Console.ReadKey();
                                     break;
 
                                 case "0":
@@ -342,20 +376,24 @@ namespace Projetcbdsalledesport
                                     Console.ForegroundColor = ConsoleColor.Blue;
                                     Console.WriteLine("--- ENREGISTREMENT D'UN COACH ---");
                                     Console.ResetColor();
-                                    Console.Write("Nom : "); string n = Console.ReadLine();
-                                    Console.Write("Prénom : "); string p = Console.ReadLine();
-                                    Console.Write("Spécialité : "); string s = Console.ReadLine();
-                                    Console.Write("Formation : "); string f = Console.ReadLine();
-                                    Console.Write("Numéro de téléphone : "); string t = Console.ReadLine();
-                                    Console.Write("Email : "); string e = Console.ReadLine();
+
+                                    // Utilisation de la méthode de validation pour chaque champ
+                                    string n = SaisirChampObligatoire("Nom");
+                                    string p = SaisirChampObligatoire("Prénom");
+                                    string s = SaisirChampObligatoire("Spécialité");
+                                    string f = SaisirChampObligatoire("Formation");
+                                    string t = SaisirChampObligatoire("Numéro de téléphone");
+                                    string e = SaisirChampObligatoire("Email");
 
                                     // Requête d'insertion dans la table Coach
                                     string sqlAdd = $"INSERT INTO Coach (nom, prenom, specialite, formation, telephone, email) " +
-                                                    $"VALUES ('{n}', '{p}', '{s}', '{f}', '{t}','{e}')";
+                                                    $"VALUES ('{n}', '{p}', '{s}', '{f}', '{t}', '{e}')";
 
                                     manager.ExecuterAction(sqlAdd);
 
-                                    Console.WriteLine("\nLe coach a été ajouté avec succès !");
+                                    Console.ForegroundColor = ConsoleColor.Green;
+                                    Console.WriteLine("\n✅ Le coach a été ajouté avec succès !");
+                                    Console.ResetColor();
                                     Console.WriteLine("Appuyez sur une touche pour continuer...");
                                     Console.ReadKey();
                                     break;
@@ -363,31 +401,49 @@ namespace Projetcbdsalledesport
                                 case "3": // SUPPRIMER UN COACH
                                     Console.Clear();
                                     Console.ForegroundColor = ConsoleColor.Blue;
-                                    Console.WriteLine("--- SUPPRIMER UN COACH ---");
+                                    Console.WriteLine("--- SUPPRESSION D'UN COACH ---");
                                     Console.ResetColor();
-                                    Console.Write("Entrez le Nom du coach à supprimer : ");
-                                    string nomASupprimer = Console.ReadLine();
 
-                                    // Vérification avant suppression
-                                    string sqlVerif = $"SELECT COUNT(*) FROM Coach WHERE nom = '{nomASupprimer}'";
-                                    int existe = Convert.ToInt32(manager.ExecuterCalcul(sqlVerif));
-
-                                    if (existe > 0)
+                                    // 1. Affichage de la liste des coachs
+                                    DataTable dtCoachs = manager.ExecuterLecture("SELECT IdCoach, nom, prenom, email FROM Coach");
+                                    Console.WriteLine("Liste des coachs enregistrés :");
+                                    foreach (DataRow r in dtCoachs.Rows)
                                     {
-                                        Console.WriteLine($"\nVoulez-vous vraiment supprimer le coach {nomASupprimer} ? Tapez Oui");
-                                        if (Console.ReadLine().ToUpper() == "O")
+                                        Console.WriteLine($"  [{r["IdCoach"]}] {r["prenom"]} {r["nom"]} ({r["email"]})");
+                                    }
+
+                                    Console.WriteLine();
+                                    string idCSuppr = SaisirChampObligatoire("Entrez l'ID du coach à supprimer");
+
+                                    if (int.TryParse(idCSuppr, out int idC))
+                                    {
+                                        object countC = manager.ExecuterCalcul($"SELECT COUNT(*) FROM Coach WHERE IdCoach = {idC}");
+                                        if (Convert.ToInt32(countC) > 0)
                                         {
-                                            manager.ExecuterAction($"DELETE FROM Coach WHERE nom = '{nomASupprimer}'");
-                                            Console.WriteLine("\nCoach supprimé.");
+                                            Console.ForegroundColor = ConsoleColor.Yellow;
+                                            Console.Write($"\n❓ Confirmez-vous la suppression du coach n°{idC} ? (O/N) : ");
+                                            Console.ResetColor();
+
+                                            if (Console.ReadLine().ToUpper() == "O")
+                                            {
+                                                // A. Supprimer les séances (Enfants) d'abord
+                                                manager.ExecuterAction($"DELETE FROM Seance WHERE IdCoach = {idC}");
+
+                                                // B. Supprimer le coach (Parent)
+                                                manager.ExecuterAction($"DELETE FROM Coach WHERE IdCoach = {idC}");
+
+                                                Console.ForegroundColor = ConsoleColor.Green;
+                                                Console.WriteLine("\n✅ Coach supprimé avec succès.");
+                                                Console.ResetColor();
+                                            }
+                                        }
+                                        else
+                                        {
+                                            Console.WriteLine("\n❌ Cet ID n'existe pas.");
                                         }
                                     }
-                                    else
-                                    {
-                                        Console.WriteLine("\nAucun coach trouvé avec ce nom.");
-                                    }
-                                    Console.ReadKey();
+                                    Thread.Sleep(2000);
                                     break;
-
                                 case "0":
                                     retourCoachs = true;
                                     break;
@@ -461,41 +517,122 @@ namespace Projetcbdsalledesport
                                     Console.ReadKey();
                                     break;
 
-                                case "2": // ENREGISTRER UN COURS
-
+                                case "2": // ENREGISTRER UN COURS (SÉANCE)
                                     Console.Clear();
                                     Console.ForegroundColor = ConsoleColor.Blue;
-                                    Console.WriteLine("--- CRÉATION D'UN COURS ---");
+                                    Console.WriteLine("--- CRÉATION D'UNE NOUVELLE SÉANCE ---");
                                     Console.ResetColor();
-                                    Console.Write("Nom du cours (ex: Yoga) : "); string nomC = Console.ReadLine();
-                                    Console.Write("Horaire (AAAA-MM-JJ HH:MM) : "); string hor = Console.ReadLine();
 
-                                    // On affiche les coachs pour que le gérant choisisse
-                                    Console.ForegroundColor = ConsoleColor.Blue;
-                                    Console.WriteLine("\n--- CHOISIR UN COACH ---");
+                                    // 1. Saisie du nom du cours (ex: Yoga)
+                                    string nomCours = SaisirChampObligatoire("Nom du cours (ex: Yoga)");
+
+                                    // 2. Récupération de l'ID du cours correspondant
+                                    string sqlIdC = $"SELECT IdCours FROM TypeCours WHERE NomCours = '{nomCours}'";
+                                    DataTable dtCours = manager.ExecuterLecture(sqlIdC);
+
+                                    if (dtCours.Rows.Count == 0)
+                                    {
+                                        Console.ForegroundColor = ConsoleColor.Red;
+                                        Console.WriteLine($"\n❌ Erreur : Le type de cours '{nomCours}' n'existe pas.");
+                                        Console.ResetColor();
+                                        Console.ReadKey();
+                                        break;
+                                    }
+                                    int idCoursValide = Convert.ToInt32(dtCours.Rows[0]["IdCours"]);
+
+                                    // 3. Saisie de la durée avec validation numérique (Évite l'erreur Out of Range)
+                                    int dureeMinutes = 0;
+                                    bool dureeValide = false;
+                                    while (!dureeValide)
+                                    {
+                                        string saisieDuree = SaisirChampObligatoire("Durée du cours (en minutes, ex: 60)");
+                                        if (int.TryParse(saisieDuree, out dureeMinutes) && dureeMinutes > 0 && dureeMinutes < 300)
+                                        {
+                                            dureeValide = true;
+                                        }
+                                        else
+                                        {
+                                            Console.ForegroundColor = ConsoleColor.Red;
+                                            Console.WriteLine("   ⚠️ Erreur : Veuillez saisir un nombre entre 1 et 300.");
+                                            Console.ResetColor();
+                                        }
+                                    }
+
+                                    // 4. Saisie et validation de l'horaire (doit être dans le futur)
+                                    string hor = "";
+                                    DateTime dateSaisie = DateTime.Now;
+                                    bool dateValide = false;
+                                    while (!dateValide)
+                                    {
+                                        hor = SaisirChampObligatoire("Horaire (Format: AAAA-MM-JJ HH:MM)");
+                                        if (DateTime.TryParse(hor, out dateSaisie))
+                                        {
+                                            if (dateSaisie > DateTime.Now) dateValide = true;
+                                            else
+                                            {
+                                                Console.ForegroundColor = ConsoleColor.Red;
+                                                Console.WriteLine("   ⚠️ Erreur : La date doit être dans le futur.");
+                                                Console.ResetColor();
+                                            }
+                                        }
+                                        else
+                                        {
+                                            Console.ForegroundColor = ConsoleColor.Red;
+                                            Console.WriteLine("   ⚠️ Erreur : Format invalide (Ex: 2026-05-12 14:00)");
+                                            Console.ResetColor();
+                                        }
+                                    }
+
+                                    // 5. Choix du Coach
+                                    Console.ForegroundColor = ConsoleColor.Cyan;
+                                    Console.WriteLine("\n--- LISTE DES COACHS ---");
                                     Console.ResetColor();
-                                    DataTable dtCo = manager.ExecuterLecture("SELECT IdCoach, nom FROM Coach");
-                                    foreach (DataRow r in dtCo.Rows) Console.WriteLine($"{r["IdCoach"]} - {r["nom"]}");
-                                    Console.Write("ID du coach : "); string idC = Console.ReadLine();
+                                    DataTable dtCo = manager.ExecuterLecture("SELECT IdCoach, nom, prenom FROM Coach");
+                                    foreach (DataRow r in dtCo.Rows) Console.WriteLine($" ID: {r["IdCoach"]} | {r["prenom"]} {r["nom"]}");
+                                    string idC = SaisirChampObligatoire("Entrez l'ID du coach choisi");
 
-                                    // On affiche les salles pour que le gérant choisisse
-                                    Console.ForegroundColor = ConsoleColor.Blue;
-                                    Console.WriteLine("\n--- CHOISIR UNE SALLE ---");
+                                    // 6. Choix de la Salle
+                                    Console.ForegroundColor = ConsoleColor.Cyan;
+                                    Console.WriteLine("\n--- LISTE DES SALLES ---");
                                     Console.ResetColor();
-                                    DataTable dtSa = manager.ExecuterLecture("SELECT IdSalle, nom, capacite FROM Salle");
-                                    foreach (DataRow r in dtSa.Rows) Console.WriteLine($"{r["IdSalle"]} - {r["nom"]} (Capacité: {r["capacite"]})");
-                                    Console.Write("ID de la salle : "); string idS = Console.ReadLine();
+                                    DataTable dtSa = manager.ExecuterLecture("SELECT idSalle, nomSalle, capacite FROM Salle");
+                                    foreach (DataRow r in dtSa.Rows) Console.WriteLine($" ID: {r["idSalle"]} | {r["nomSalle"]} (Capacité: {r["capacite"]})");
+                                    string idS = SaisirChampObligatoire("Entrez l'ID de la salle choisie");
 
-                                    // On récupère la capacité de la salle choisie pour l'insérer dans la séance
-                                    string sqlCap = $"SELECT capacite FROM Salle WHERE IdSalle = {idS}";
-                                    int cap = Convert.ToInt32(manager.ExecuterCalcul(sqlCap));
+                                    try
+                                    {
+                                        // 7. Récupération de la capacité de la salle
+                                        string sqlCap = $"SELECT capacite FROM Salle WHERE idSalle = {idS}";
+                                        object resultCap = manager.ExecuterCalcul(sqlCap);
 
-                                    // Insertion finale
-                                    string sqlIns = $"INSERT INTO Seance (nomC, horaire, IdCoach, IdSalle, CapaciteMax) " +
-                                                    $"VALUES ('{nomC}', '{hor}', {idC}, {idS}, {cap})";
-                                    manager.ExecuterAction(sqlIns);
+                                        if (resultCap != null)
+                                        {
+                                            int capMax = Convert.ToInt32(resultCap);
 
-                                    Console.WriteLine("\nCours ajouté au planning avec succès !");
+                                            // 8. INSERTION FINALE
+                                            // Vérifie bien que tes colonnes SQL sont : IdCours, DateDebut, IdCoach, idSalle, CapaciteMax, DureeMinutes
+                                            string sqlIns = $"INSERT INTO Seance (IdCours, DateDebut, IdCoach, idSalle, CapaciteMax, DureeMinutes) " +
+                                                            $"VALUES ({idCoursValide}, '{dateSaisie:yyyy-MM-dd HH:mm:ss}', {idC}, {idS}, {capMax}, {dureeMinutes})";
+
+                                            manager.ExecuterAction(sqlIns);
+
+                                            Console.ForegroundColor = ConsoleColor.Green;
+                                            Console.WriteLine("\n✅ Séance ajoutée au planning avec succès !");
+                                            Console.ResetColor();
+                                        }
+                                        else
+                                        {
+                                            Console.WriteLine("\n❌ Erreur : Salle introuvable.");
+                                        }
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Console.ForegroundColor = ConsoleColor.Red;
+                                        Console.WriteLine("\n❌ Erreur MySQL : " + ex.Message);
+                                        Console.ResetColor();
+                                    }
+
+                                    Console.WriteLine("\nAppuyez sur une touche pour continuer...");
                                     Console.ReadKey();
                                     break;
 
@@ -511,8 +648,9 @@ namespace Projetcbdsalledesport
                                     manager.ExecuterAction($"DELETE FROM Reservation WHERE IdSeance = {idSuppr}");
                                     // Puis on supprime la séance
                                     manager.ExecuterAction($"DELETE FROM Seance WHERE IdSeance = {idSuppr}");
-
+                                    Console.ForegroundColor = ConsoleColor.Green;
                                     Console.WriteLine("\nLe cours et ses réservations ont été supprimés.");
+                                    Console.ResetColor();
                                     Console.ReadKey();
                                     break;
 
@@ -568,31 +706,110 @@ namespace Projetcbdsalledesport
                                     break;
 
                                 case "2": // AJOUTER UNE SALLE
+                                 
                                     Console.Clear();
                                     Console.ForegroundColor = ConsoleColor.Blue;
-                                    Console.WriteLine("--- AJOUTER UNE SALLE ---");
+                                    Console.WriteLine("--- AJOUTER UNE NOUVELLE SALLE ---");
                                     Console.ResetColor();
-                                    Console.Write("Nom de la salle (ex: Studio A) : "); string nomS = Console.ReadLine();
-                                    Console.Write("Capacité maximale : "); string capS = Console.ReadLine();
 
-                                    string sqlAddSalle = $"INSERT INTO Salle (nom, capacite) VALUES ('{nomS}', {capS})";
-                                    manager.ExecuterAction(sqlAddSalle);
+                                    // 1. Saisie obligatoire du nom de la salle
+                                    string nomS = SaisirChampObligatoire("Nom de la salle (ex: Muscu B)");
 
-                                    Console.WriteLine("\nSalle ajoutée avec succès !");
+                                    // 2. Saisie et validation de la capacité (doit être un nombre positif)
+                                    int capS = 0;
+                                    bool capValide = false;
+                                    while (!capValide)
+                                    {
+                                        string saisieCap = SaisirChampObligatoire("Capacité maximale");
+                                        if (int.TryParse(saisieCap, out capS) && capS > 0)
+                                        {
+                                            capValide = true;
+                                        }
+                                        else
+                                        {
+                                            Console.ForegroundColor = ConsoleColor.Red;
+                                            Console.WriteLine("   ⚠️ Erreur : Veuillez saisir un nombre entier positif.");
+                                            Console.ResetColor();
+                                        }
+                                    }
+
+                                    try
+                                    {
+                                        // 3. Requête d'insertion (CORRECTION : nomSalle au lieu de nom)
+                                        string sqlAddSalle = $"INSERT INTO Salle (nomSalle, capacite) VALUES ('{nomS}', {capS})";
+
+                                        manager.ExecuterAction(sqlAddSalle);
+
+                                        Console.ForegroundColor = ConsoleColor.Green;
+                                        Console.WriteLine("\n✅ La salle a été ajoutée avec succès !");
+                                        Console.ResetColor();
+                                        Thread.Sleep(1500);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Console.ForegroundColor = ConsoleColor.Red;
+                                        Console.WriteLine("\n❌ Erreur MySQL : " + ex.Message);
+                                        Console.ResetColor();
+                                    }
+
+                                    Console.WriteLine("\nAppuyez sur une touche pour continuer...");
                                     Console.ReadKey();
                                     break;
 
                                 case "3": // SUPPRIMER UNE SALLE
                                     Console.Clear();
                                     Console.ForegroundColor = ConsoleColor.Blue;
-                                    Console.WriteLine("--- SUPPRIMER UNE SALLE ---");
+                                    Console.WriteLine("--- SUPPRIMER UNE SALLE (PAR ID) ---");
                                     Console.ResetColor();
-                                    Console.Write("Entrez le Nom de la salle à supprimer : ");
-                                    string nomSallesuppr = Console.ReadLine();
 
-                                    manager.ExecuterAction($"DELETE FROM Salle WHERE nom = '{nomSallesuppr}'");
-                                    Console.WriteLine("\nSuppression effectuée si la salle existait.");
-                                    Console.ReadKey();
+                                    // 1. Afficher la liste des salles pour que l'utilisateur voit les IDs
+                                    DataTable dtSalle = manager.ExecuterLecture("SELECT idSalle, nomSalle FROM Salle");
+                                    Console.WriteLine("Liste des salles disponibles :");
+                                    foreach (DataRow r in dtSalle.Rows)
+                                    {
+                                        Console.WriteLine($"  [{r["idSalle"]}] - {r["nomSalle"]}");
+                                    }
+
+                                    // 2. Saisie de l'ID avec validation numérique
+                                    Console.WriteLine();
+                                    string saisieId = SaisirChampObligatoire("Entrez l'ID de la salle à supprimer");
+
+                                    if (int.TryParse(saisieId, out int idS))
+                                    {
+                                        // 3. Vérification si l'ID existe
+                                        object existe = manager.ExecuterCalcul($"SELECT COUNT(*) FROM Salle WHERE idSalle = {idS}");
+                                        if (Convert.ToInt32(existe) > 0)
+                                        {
+                                            Console.ForegroundColor = ConsoleColor.Yellow;
+                                            Console.Write($"\n⚠️ Confirmez-vous la suppression de la salle n°{idS} et de ses séances ? (O/N) : ");
+                                            Console.ResetColor();
+
+                                            if (Console.ReadLine().ToUpper() == "O")
+                                            {
+                                                // ORDRE CRITIQUE : Supprimer les dépendances d'abord
+                                                manager.ExecuterAction($"DELETE FROM Seance WHERE idSalle = {idS}");
+                                                manager.ExecuterAction($"DELETE FROM Salle WHERE idSalle = {idS}");
+
+                                                Console.ForegroundColor = ConsoleColor.Green;
+                                                Console.WriteLine("\n✅ Salle supprimée avec succès.");
+                                                Console.ResetColor();
+                                            }
+                                        }
+                                        else
+                                        {
+                                            Console.ForegroundColor = ConsoleColor.Red;
+                                            Console.WriteLine("\n❌ Cet ID n'existe pas.");
+                                            Console.ResetColor();
+                                        }
+                                    }
+                                    else
+                                    {
+                                        Console.ForegroundColor = ConsoleColor.Red;
+                                        Console.WriteLine("\n❌ Erreur : L'ID doit être un nombre.");
+                                        Console.ResetColor();
+                                    }
+
+                                    Thread.Sleep(2000);
                                     break;
 
                                 case "0":
@@ -979,6 +1196,25 @@ namespace Projetcbdsalledesport
                 Console.WriteLine("Aucune inscription en attente.");
             }
             Console.ReadKey();
+        }
+
+        static string SaisirChampObligatoire(string nomChamp)
+        {
+            string saisie;
+            do
+            {
+                Console.Write($"{nomChamp} : ");
+                saisie = Console.ReadLine()?.Trim(); // .Trim() enlève les espaces inutiles
+
+                if (string.IsNullOrEmpty(saisie))
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine($"   ⚠️ Erreur : Le champ '{nomChamp}' ne peut pas être vide.");
+                    Console.ResetColor();
+                }
+            } while (string.IsNullOrEmpty(saisie));
+
+            return saisie;
         }
     }
 }
