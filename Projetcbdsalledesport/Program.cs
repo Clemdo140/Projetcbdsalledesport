@@ -1071,53 +1071,72 @@ namespace Projetcbdsalledesport
                     case "3": // HISTORIQUE ET ANNULATION
                         Console.Clear();
                         Console.ForegroundColor = ConsoleColor.Blue;
-                        Console.WriteLine("--- MES RÉSERVATIONS ---");
+                        Console.WriteLine($"--- PROFIL DE {membre.Prenom.ToUpper()} ---");
                         Console.ResetColor();
 
-                        // 1. Affichage des réservations actuelles
-                        string sqlMesResas = $@"SELECT R.IdReservation, T.NomCours, S.DateDebut 
-                           FROM Reservation R
-                           JOIN Seance S ON R.IdSeance = S.IdSeance
-                           JOIN TypeCours T ON S.IdCours = T.IdCours
-                           WHERE R.IdUtilisateur = {membre.IdUtilisateur}";
+                        // 1. AFFICHAGE DE L'ABONNEMENT
+                        string sqlAbonnement = "SELECT s.dateDebut, s.dateFin, t.libelle, s.statut " +
+                                               "FROM Souscription s " +
+                                               "JOIN TypeAdhesion t ON s.IdTypeAdhesion = t.IdTypeAdhesion " +
+                                               $"WHERE s.IdUtilisateur = {membre.IdUtilisateur}";
 
-                        DataTable dtMesResas = manager.ExecuterLecture(sqlMesResas);
+                        DataTable dtAbon = manager.ExecuterLecture(sqlAbonnement);
 
-                        if (dtMesResas.Rows.Count > 0)
+                        Console.WriteLine("\n[ STATUT DE L'ABONNEMENT ]");
+                        if (dtAbon.Rows.Count > 0)
                         {
-                            foreach (DataRow row in dtMesResas.Rows)
+                            DataRow abo = dtAbon.Rows[0];
+                            DateTime dateFin = Convert.ToDateTime(abo["dateFin"]);
+                            string statutBase = abo["statut"].ToString();
+
+                            Console.Write($"Offre : {abo["libelle"]} | Expire le : {dateFin:dd/MM/yyyy}");
+
+                            // Logique de couleur selon la date et le statut
+                            if (statutBase != "Validée")
                             {
-                                Console.WriteLine($"- ID Réservation : {row["IdReservation"]} | Cours : {row["NomCours"]} à {row["DateDebut"]}");
+                                Console.ForegroundColor = ConsoleColor.Yellow;
+                                Console.WriteLine(" (EN ATTENTE DE PAIEMENT)");
                             }
-
-                            Console.Write("\nSouhaitez-vous annuler une réservation ? (Entrez l'ID ou 'N' pour quitter) : ");
-                            string saisie = Console.ReadLine();
-
-                            // 2. GESTION DE L'ERREUR DE SAISIE
-                            if (saisie.ToUpper() != "N")
+                            else if (dateFin < DateTime.Now)
                             {
-                                // On vérifie si la saisie est bien un nombre entier
-                                if (int.TryParse(saisie, out int idReservation))
-                                {
-                                    // On vérifie aussi que cette réservation appartient bien au membre connecté (SÉCURITÉ)
-                                    string sqlAnnuler = $"DELETE FROM Reservation WHERE IdReservation = {idReservation} AND IdUtilisateur = {membre.IdUtilisateur}";
+                                Console.ForegroundColor = ConsoleColor.Red;
+                                Console.WriteLine(" (EXPIRÉ)");
+                            }
+                            else
+                            {
+                                Console.ForegroundColor = ConsoleColor.Green;
+                                Console.WriteLine(" (ACTIF)");
+                            }
+                            Console.ResetColor();
+                        }
+                        else
+                        {
+                            Console.WriteLine("Aucun abonnement enregistré.");
+                        }
 
-                                    manager.ExecuterAction(sqlAnnuler);
-                                    Console.ForegroundColor = ConsoleColor.Green;
-                                    Console.WriteLine("\n✅ Réservation annulée avec succès.");
-                                    Console.ResetColor();
-                                }
-                                else
-                                {
-                                    Console.ForegroundColor = ConsoleColor.Red;
-                                    Console.WriteLine("\n❌ Erreur : Veuillez entrer un ID numérique valide (ex: 4).");
-                                    Console.ResetColor();
-                                }
+                        // 2. AFFICHAGE DES RÉSERVATIONS
+                        Console.WriteLine("\n[ MES SÉANCES RÉSERVÉES ]");
+                        string sqlRes = "SELECT t.NomCours, s.DateDebut, sa.nomSalle " +
+                                        "FROM Reservation r " +
+                                        "JOIN Seance s ON r.IdSeance = s.IdSeance " +
+                                        "JOIN TypeCours t ON s.IdCours = t.IdCours " +
+                                        "JOIN Salle sa ON s.idSalle = sa.idSalle " +
+                                        $"WHERE r.IdUtilisateur = {membre.IdUtilisateur} " +
+                                        "ORDER BY s.DateDebut ASC";
+
+                        DataTable dtRes = manager.ExecuterLecture(sqlRes);
+
+                        if (dtRes.Rows.Count > 0)
+                        {
+                            foreach (DataRow r in dtRes.Rows)
+                            {
+                                DateTime d = Convert.ToDateTime(r["DateDebut"]);
+                                Console.WriteLine($"- {r["NomCours"]} le {d:dd/MM à HH:mm} (Salle : {r["nomSalle"]})");
                             }
                         }
                         else
                         {
-                            Console.WriteLine("Vous n'avez aucune réservation.");
+                            Console.WriteLine("Vous n'avez aucune réservation à venir.");
                         }
 
                         Console.WriteLine("\nAppuyez sur une touche pour continuer...");
@@ -1126,32 +1145,61 @@ namespace Projetcbdsalledesport
 
                     case "4": // ADHÉRER À UN ABONNEMENT
                         Console.Clear();
-                        Console.ForegroundColor = ConsoleColor.Blue;
-                        Console.WriteLine("--- CHOISIR UN ABONNEMENT ---");
+                        Console.ForegroundColor = ConsoleColor.Cyan;
+                        Console.WriteLine("--- SOUSCRIRE À UN ABONNEMENT ---");
                         Console.ResetColor();
-
-                        // 1. Lister les types d'adhésion disponibles
+                        Console.WriteLine("En souscrivant à un nouvel abonnement, votre ancien abonnement sera remplacé et vos séances réservées annulées");
+                        // 1. On affiche les offres disponibles en base de données
                         DataTable dtTypes = manager.ExecuterLecture("SELECT * FROM TypeAdhesion");
+                        Console.WriteLine("\nNos offres disponibles :");
                         foreach (DataRow r in dtTypes.Rows)
                         {
-                            Console.WriteLine($"{r["IdTypeAdhesion"]}. {r["libelle"]} - {r["prix"]}€/mois");
+                            Console.WriteLine($"{r["IdTypeAdhesion"]}. {r["libelle"]} ({r["prix"]}€/mois)");
                         }
 
-                        Console.Write("\nEntrez le numéro de l'abonnement souhaité : ");
+                        Console.Write("\nChoisissez le numéro de l'offre : ");
                         string choixAdh = Console.ReadLine();
 
-                        // 2. Créer la souscription (en statut 'En attente')
-                        // Le staff devra ensuite la valider avec le bouton qu'on a réparé tout à l'heure !
-                        string dateDebut = DateTime.Now.ToString("yyyy-MM-dd");
-                        string dateFin = DateTime.Now.AddYears(1).ToString("yyyy-MM-dd");
+                        if (!string.IsNullOrEmpty(choixAdh))
+                        {
+                            // 2. NETTOYAGE : On supprime l'ancien abonnement (expiré ou en attente) 
+                            // pour que le nouveau prenne la place et ne soit pas pollué par l'ancienne date.
+                            string sqlNettoyage = $"DELETE FROM Souscription WHERE IdUtilisateur = {membre.IdUtilisateur}";
+                            manager.ExecuterAction(sqlNettoyage);
 
-                        string sqlSouscrire = $"INSERT INTO Souscription (dateDebut, dateFin, statut, IdUtilisateur, IdTypeAdhesion) " +
-                                             $"VALUES ('{dateDebut}', '{dateFin}', 'En attente', {membre.IdUtilisateur}, {choixAdh})";
+                            // 3. CALCUL DES DATES : On part d'aujourd'hui pour 12 mois
+                            DateTime debut = DateTime.Now;
+                            DateTime fin = DateTime.Now.AddMonths(12);
 
-                        manager.ExecuterAction(sqlSouscrire);
-                        Console.ForegroundColor = ConsoleColor.Green;
-                        Console.WriteLine("\n✅ Demande envoyée ! Veuillez vous présenter à l'accueil pour le règlement.");
+                            // Formatage pour MySQL (YYYY-MM-DD)
+                            string dateDebutStr = debut.ToString("yyyy-MM-dd");
+                            string dateFinStr = fin.ToString("yyyy-MM-dd");
+
+                            // 4. INSERTION : Création de la nouvelle demande
+                            string sqlSouscrire = $"INSERT INTO Souscription (dateDebut, dateFin, statut, IdUtilisateur, IdTypeAdhesion) " +
+                                                  $"VALUES ('{dateDebutStr}', '{dateFinStr}', 'En attente', {membre.IdUtilisateur}, {choixAdh})";
+
+                            try
+                            {
+                                manager.ExecuterAction(sqlSouscrire);
+                                Console.ForegroundColor = ConsoleColor.Green;
+                                Console.WriteLine("\n✅ Votre demande a été enregistrée avec succès !");
+                                Console.WriteLine($"Statut : EN ATTENTE (Expire le {fin:dd/MM/yyyy})");
+                                Console.WriteLine("\nVeuillez vous présenter à l'accueil pour valider votre paiement.");
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.ForegroundColor = ConsoleColor.Red;
+                                Console.WriteLine("\n❌ Erreur lors de la souscription : " + ex.Message);
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine("Action annulée.");
+                        }
+
                         Console.ResetColor();
+                        Console.WriteLine("\nAppuyez sur une touche pour revenir au menu...");
                         Console.ReadKey();
                         break;
 
