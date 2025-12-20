@@ -89,9 +89,9 @@ namespace Projetcbdsalledesport
                 Console.ForegroundColor = ConsoleColor.Yellow;
                 Console.WriteLine("--- SESSION TERMINÉE ---");
                 Console.ResetColor();
-                Console.WriteLine("1) Se reconnecter avec un autre compte");
                 Console.WriteLine("0) Quitter définitivement");
-                Console.Write("\nChoix : ");
+                Console.WriteLine("1) Se reconnecter avec un autre compte");
+                         Console.Write("\nChoix : ");
 
                 string choixFinal = Console.ReadLine();
                 if (choixFinal == "0")
@@ -138,7 +138,7 @@ namespace Projetcbdsalledesport
             // AFFICHAGE DES RESULTATS
             Console.WriteLine($"Nombre de membres inscrits : {nbMembres}");
             Console.WriteLine($"Cours le plus suivi : {coursPop}");
-            Console.WriteLine($"Taux de remplissage global : {Math.Round(occupation, 2)}%");
+            Console.WriteLine($"Taux de remplissage global des séances : {Math.Round(occupation, 2)}%");
             Console.ForegroundColor = ConsoleColor.Blue;
             Console.WriteLine("\n--- TOP 3 COACHS LES PLUS SUIVIS ---");
             Console.ResetColor();
@@ -437,7 +437,7 @@ namespace Projetcbdsalledesport
                             Console.WriteLine("0) Retour au menu principal");
                             Console.WriteLine("1) Voir le planning des cours");
                             Console.WriteLine("2) Enregistrer un nouveau cours");
-                            Console.WriteLine("3) Supprimer (Annuler) un cours");
+                            Console.WriteLine("3) Supprimer un cours");
                            
                             Console.Write("\nVotre choix : ");
 
@@ -594,20 +594,82 @@ namespace Projetcbdsalledesport
                                     Console.ReadKey();
                                     break;
 
-                                case "3": 
+                                case "3":
+                             
                                     Console.Clear();
                                     Console.ForegroundColor = ConsoleColor.Blue;
                                     Console.WriteLine("--- ANNULATION D'UN COURS ---");
                                     Console.ResetColor();
-                                    Console.Write("Entrez l'ID du cours à supprimer : ");
-                                    string idSuppr = Console.ReadLine();
-                                    manager.ExecuterAction($"DELETE FROM Reservation WHERE IdSeance = {idSuppr}");
-                                    manager.ExecuterAction($"DELETE FROM Seance WHERE IdSeance = {idSuppr}");
-                                    Console.ForegroundColor = ConsoleColor.Green;
-                                    Console.WriteLine("\nLe cours et ses réservations ont été supprimés.");
+
+                                    // Afficher d'abord le planning actuel pour aider l'administrateur
+                                    string sqlPlanning = @"SELECT S.IdSeance, T.NomCours, S.DateDebut 
+                                                          FROM Seance S 
+                                                          JOIN TypeCours T ON S.IdCours = T.IdCours 
+                                                          ORDER BY S.DateDebut";
+
+                                    DataTable dtPlanning = manager.ExecuterLecture(sqlPlanning);
+
+                                    if (dtPlanning.Rows.Count > 0)
+                                    {
+                                        foreach (DataRow r in dtPlanning.Rows)
+                                        {
+                                            Console.WriteLine($"ID: {r["IdSeance"]} | {r["NomCours"]} le {r["DateDebut"]}");
+                                        }
+
+                                    
+                                        Console.Write("\nEntrez l'ID du cours à supprimer (ou Entrée pour annuler) : ");
+                                        string idSaisie = Console.ReadLine();
+
+                                        if (!string.IsNullOrEmpty(idSaisie))
+                                        {
+                                           
+                                            if (int.TryParse(idSaisie, out int idCours))
+                                            {
+                                       
+                                                string sqlCheck = $"SELECT COUNT(*) FROM Seance WHERE IdSeance = {idCours}";
+                                                int existe = Convert.ToInt32(manager.ExecuterCalcul(sqlCheck));
+
+                                                if (existe > 0)
+                                                {
+                                                    try
+                                                    {
+                                                  
+                                                        manager.ExecuterAction($"DELETE FROM Reservation WHERE IdSeance = {idCours}");
+                                          
+                                                        manager.ExecuterAction($"DELETE FROM Seance WHERE IdSeance = {idCours}");
+
+                                                        Console.ForegroundColor = ConsoleColor.Green;
+                                                        Console.WriteLine("\nLe cours et ses réservations ont été supprimés.");
+                                                    }
+                                                    catch (Exception ex)
+                                                    {
+                                                        Console.ForegroundColor = ConsoleColor.Red;
+                                                        Console.WriteLine("\nErreur lors de la suppression : " + ex.Message);
+                                                        Console.ResetColor();
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    Console.ForegroundColor = ConsoleColor.Red;
+                                                    Console.WriteLine("\nAucun cours trouvé avec cet ID.");
+                                                }
+                                            }
+                                            else
+                                            {
+                                                Console.ForegroundColor = ConsoleColor.Red;
+                                                Console.WriteLine("\nErreur : Vous devez saisir un nombre.");
+                                            }
+                                        }
+                                    }
+                                    else
+                                    {
+                                        Console.WriteLine("Aucun cours n'est actuellement programmé.");
+                                    }
+
                                     Console.ResetColor();
                                     Console.ReadKey();
                                     break;
+                                  
 
                                 case "0":
                                     retourCours = true;
@@ -915,8 +977,8 @@ namespace Projetcbdsalledesport
                         try
                         {
                             // 1. Vérification de l'abonnement
-                            string sqlAbo = $"SELECT statut FROM Souscription WHERE IdUtilisateur = {membre.IdUtilisateur} AND statut = 'Validée'";
-                            DataTable dtAbo = manager.ExecuterLecture(sqlAbo);
+                            string abo = $"SELECT statut FROM Souscription WHERE IdUtilisateur = {membre.IdUtilisateur} AND statut = 'Validée'";
+                            DataTable dtAbo = manager.ExecuterLecture(abo);
 
                             if (dtAbo.Rows.Count == 0)
                             {
@@ -998,17 +1060,19 @@ namespace Projetcbdsalledesport
                         Console.ReadKey();
                         break;
 
-                    case "3": 
+                    case "3":
                         Console.Clear();
                         Console.ForegroundColor = ConsoleColor.Blue;
                         Console.WriteLine($"--- PROFIL DE {membre.Prenom.ToUpper()} ---");
                         Console.ResetColor();
-                        string sqlAbonnement = "SELECT s.dateDebut, s.dateFin, t.libelle, s.statut " +
-                                               "FROM Souscription s " +
-                                               "JOIN TypeAdhesion t ON s.IdTypeAdhesion = t.IdTypeAdhesion " +
-                                               $"WHERE s.IdUtilisateur = {membre.IdUtilisateur}";
 
-                        DataTable dtAbon = manager.ExecuterLecture(sqlAbonnement);
+                        //Statut abonnement
+                        string sqlAbo = "SELECT s.dateDebut, s.dateFin, t.libelle, s.statut " +
+                                        "FROM Souscription s " +
+                                        "JOIN TypeAdhesion t ON s.IdTypeAdhesion = t.IdTypeAdhesion " +
+                                        $"WHERE s.IdUtilisateur = {membre.IdUtilisateur}";
+
+                        DataTable dtAbon = manager.ExecuterLecture(sqlAbo);
 
                         Console.WriteLine("\n[ STATUT DE L'ABONNEMENT ]");
                         if (dtAbon.Rows.Count > 0)
@@ -1018,6 +1082,7 @@ namespace Projetcbdsalledesport
                             string statutBase = abo["statut"].ToString();
 
                             Console.Write($"Offre : {abo["libelle"]} | Expire le : {dateFin:dd/MM/yyyy}");
+
                             if (statutBase != "Validée")
                             {
                                 Console.ForegroundColor = ConsoleColor.Yellow;
@@ -1039,8 +1104,10 @@ namespace Projetcbdsalledesport
                         {
                             Console.WriteLine("Aucun abonnement enregistré.");
                         }
+
+                        //liste des resa + annuler
                         Console.WriteLine("\n[ MES SÉANCES RÉSERVÉES ]");
-                        string sqlRes = "SELECT t.NomCours, s.DateDebut, sa.nomSalle " +
+                        string sqlRes = "SELECT r.IdReservation, t.NomCours, s.DateDebut, sa.nomSalle " +
                                         "FROM Reservation r " +
                                         "JOIN Seance s ON r.IdSeance = s.IdSeance " +
                                         "JOIN TypeCours t ON s.IdCours = t.IdCours " +
@@ -1055,13 +1122,49 @@ namespace Projetcbdsalledesport
                             foreach (DataRow r in dtRes.Rows)
                             {
                                 DateTime d = Convert.ToDateTime(r["DateDebut"]);
-                                Console.WriteLine($"- {r["NomCours"]} le {d:dd/MM à HH:mm} (Salle : {r["nomSalle"]})");
+                                Console.WriteLine($"ID {r["IdReservation"]} : {r["NomCours"]} le {d:dd/MM à HH:mm} ({r["nomSalle"]})");
+                            }
+
+                            Console.Write("\nEntrez l'ID d'une séance pour l'annuler (ou Entrée pour quitter) : ");
+                            string choixAnnul = Console.ReadLine();
+
+                            if (!string.IsNullOrEmpty(choixAnnul))
+                            {
+
+                                if (int.TryParse(choixAnnul, out int idResultat))
+                                {
+                              
+                                    string sqlCheck = $"SELECT COUNT(*) FROM Reservation WHERE IdReservation = {idResultat} AND IdUtilisateur = {membre.IdUtilisateur}";
+                                    int check = Convert.ToInt32(manager.ExecuterCalcul(sqlCheck));
+
+                                    if (check > 0)
+                                    {
+                                        manager.ExecuterAction($"DELETE FROM Reservation WHERE IdReservation = {idResultat}");
+                                        Console.ForegroundColor = ConsoleColor.Green;
+                                        Console.WriteLine("\nRéservation annulée avec succès.");
+                                        Console.ResetColor();
+                                    }
+                                    else
+                                    {
+                                        Console.ForegroundColor = ConsoleColor.Red;
+                                        Console.WriteLine("\nID invalide ou ce n'est pas votre réservation.");
+                                        Console.ResetColor();
+                                    }
+                                }
+                                else
+                                {
+                                    Console.ForegroundColor = ConsoleColor.Red;
+                                    Console.WriteLine("\nErreur : Veuillez saisir un nombre (ID).");
+                                    Console.ResetColor();
+                                }
                             }
                         }
                         else
                         {
                             Console.WriteLine("Vous n'avez aucune réservation à venir.");
                         }
+
+                        Console.WriteLine("\nAppuyez sur une touche pour revenir au menu...");
                         Console.ReadKey();
                         break;
 
