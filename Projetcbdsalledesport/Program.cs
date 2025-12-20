@@ -168,6 +168,23 @@ namespace Projetcbdsalledesport
                 {
                     Console.WriteLine($"- {r["nom"]} : {r["Nb"]} réservations");
                 }
+                Console.ForegroundColor = ConsoleColor.Blue;
+                Console.WriteLine("\n--- RÉCAPITULATIF DES ACTIVITÉS PAR SALLE ---");
+                Console.ResetColor();
+                string sqlGroup = @"SELECT Sa.nomSalle, GROUP_CONCAT(DISTINCT T.NomCours SEPARATOR ', ') as Activites
+                    FROM Salle Sa
+                    LEFT JOIN Seance S ON Sa.idSalle = S.idSalle
+                    LEFT JOIN TypeCours T ON S.IdCours = T.IdCours
+                    GROUP BY Sa.nomSalle";//requête pour obtenir les activités programmées par salle
+
+                DataTable dtGroup = manager.ExecuterLecture(sqlGroup);
+                foreach (DataRow r in dtGroup.Rows)
+                {
+                    string activites = r["Activites"] == DBNull.Value || string.IsNullOrEmpty(r["Activites"].ToString())
+                                       ? "Aucune séance prévue"
+                                       : r["Activites"].ToString();
+                    Console.WriteLine($"- {r["nomSalle"]} : {activites}");
+                }
             }
             catch (Exception ex)
             {
