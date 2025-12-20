@@ -11,12 +11,12 @@ namespace Projetcbdsalledesport
     // Classe pour gérer les commandes SQL vers la base de données
     public class CommandeManager
     {
-        private string connectionString;//variable de connexion à la base qui stock ses coordonnées
+        private string maconnection;//variable de connexion à la base qui stock ses coordonnées
         private int privilege;//valeur de l'id du rôle de l'utilisateur connecté
 
         public CommandeManager(string utilisateur, int privilege, string mdp)
         {
-            connectionString = $"Server=localhost;Database=SalleDeSport;Uid={utilisateur};Pwd={mdp};";
+            maconnection = $"Server=localhost;Database=SalleDeSport;Uid={utilisateur};Pwd={mdp};";
         }
         /// <summary>
         /// Méthode pour lire les données dans la base de données
@@ -25,7 +25,7 @@ namespace Projetcbdsalledesport
         /// <returns></returns>
         public DataTable ExecuterLecture(string sql)
         {
-            using (MySqlConnection conn = new MySqlConnection(connectionString))//création d'une connexion à la base
+            using (MySqlConnection conn = new MySqlConnection(maconnection))//création d'une connexion à la base
             {
                 MySqlDataAdapter adapter = new MySqlDataAdapter(sql, conn);//création d'un adaptateur de données
                 DataTable dt = new DataTable();//création d'un tableau de données
@@ -39,7 +39,7 @@ namespace Projetcbdsalledesport
         /// <param name="sql"></param>
         public void ExecuterAction(string sql)
         {
-            using (MySqlConnection conn = new MySqlConnection(connectionString))
+            using (MySqlConnection conn = new MySqlConnection(maconnection))
             {
                 conn.Open();//ouverture de la connexion
                 MySqlCommand cmd = new MySqlCommand(sql, conn);//création d'une commande SQL
@@ -53,11 +53,14 @@ namespace Projetcbdsalledesport
         /// <returns></returns>
         public object ExecuterCalcul(string sql)
         {
-            using (MySqlConnection conn = new MySqlConnection(this.connectionString))
+            using (MySqlConnection conn = new MySqlConnection(this.maconnection))
             {
                 conn.Open();
                 MySqlCommand cmd = new MySqlCommand(sql, conn);
-                return cmd.ExecuteScalar();//exécution de la commande SQL et retour du résultat
+                object res = cmd.ExecuteScalar();//exécution de la commande SQL et retour du résultat, plus simple qu'un tableau avec ExecuteReader   
+                conn.Close();
+                return res;
+              
             }
         }
     }

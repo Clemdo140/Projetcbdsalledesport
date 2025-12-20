@@ -19,7 +19,6 @@ namespace Projetcbdsalledesport
         /// <returns></returns>
         public static Utilisateur Login(string email, string mdp, CommandeManager manager)
         {
-            // Requête avec une Jointure pour récupérer le rôle en même temps
             string sql = $@"SELECT u.*, r.fonction 
                             FROM Utilisateur u 
                             JOIN Role r ON u.IdRole = r.IdRole 
