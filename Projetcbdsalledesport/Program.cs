@@ -13,7 +13,8 @@ namespace Projetcbdsalledesport
     {
 
         static void Main(string[] args)
-        { 
+        {
+            Console.OutputEncoding = System.Text.Encoding.UTF8;
             //Initialisation de la connexion
             string maconnection = "Server=localhost;Database=SalleDeSport;Uid=AppUser;Pwd=MdpAppUser;";
             CommandeManager manager = new CommandeManager(maconnection, 0, "");//On crée le manager pour la première fois mais comme personne n'est connecté, on met le privilège à 0 et le mot de passe est vide
@@ -114,41 +115,66 @@ namespace Projetcbdsalledesport
             Console.ForegroundColor = ConsoleColor.Blue;
             Console.WriteLine("--- [RAPPORT STATISTIQUE - ÉVALUATION] ---");
             Console.ResetColor();
-            Console.WriteLine("Génération des rapports en cours...\n");
-
-            int nbMembres = Convert.ToInt32(manager.ExecuterCalcul("SELECT COUNT(*) FROM Utilisateur WHERE IdRole = 3"));
-
-            string sqlPop = @"SELECT T.NomCours AS nomC, 
-                               COUNT(R.IdReservation) AS NbParticipants
-                        FROM TypeCours T
-                        LEFT JOIN Seance S ON T.IdCours = S.IdCours
-                        LEFT JOIN Reservation R ON S.IdSeance = R.IdSeance
-                        GROUP BY T.NomCours";
-            DataTable dtPop = manager.ExecuterLecture(sqlPop);
-            string coursPop = dtPop.Rows.Count > 0 ? dtPop.Rows[0]["nomC"].ToString() : "Aucun";
-
-            double occupation = 0;
+          
             try
             {
-                string Occ = "SELECT (COUNT(R.IdReservation) * 100.0 / SUM(S.CapaciteMax)) FROM Seance S LEFT JOIN Reservation R ON S.IdSeance = R.IdSeance";
-                occupation = Convert.ToDouble(manager.ExecuterCalcul(Occ));
-            }
-            catch { occupation = 0; }
+               
+                string sqlSallesAgg = @"SELECT COUNT(IdSeance), MIN(CapaciteMax), MAX(CapaciteMax), AVG(CapaciteMax) 
+                                FROM Seance";
+                DataTable dtAgg = manager.ExecuterLecture(sqlSallesAgg);
 
-            // AFFICHAGE DES RESULTATS
-            Console.WriteLine($"Nombre de membres inscrits : {nbMembres}");
-            Console.WriteLine($"Cours le plus suivi : {coursPop}");
-            Console.WriteLine($"Taux de remplissage global des séances : {Math.Round(occupation, 2)}%");
-            Console.ForegroundColor = ConsoleColor.Blue;
-            Console.WriteLine("\n--- TOP 3 COACHS LES PLUS SUIVIS ---");
-            Console.ResetColor();
-            string sqlCoachs = @"SELECT C.nom, COUNT(R.IdReservation) as Nb 
-                         FROM Coach C 
-                         JOIN Seance S ON C.IdCoach = S.IdCoach 
-                         JOIN Reservation R ON S.IdSeance = R.IdSeance 
-                         GROUP BY C.nom ORDER BY Nb DESC LIMIT 3";
-            DataTable dtC = manager.ExecuterLecture(sqlCoachs);
-            foreach (DataRow r in dtC.Rows) Console.WriteLine($"- {r["nom"]} : {r["Nb"]} réservations");
+                if (dtAgg.Rows.Count > 0 && dtAgg.Rows[0][0] != DBNull.Value)
+                {
+                    Console.WriteLine($"- Nombre total de séances créées : {dtAgg.Rows[0][0]}");
+                    Console.WriteLine($"- Capacité des séances : Min {dtAgg.Rows[0][1]} places | Max {dtAgg.Rows[0][2]} places | Moyenne {Math.Round(Convert.ToDouble(dtAgg.Rows[0][3]), 2)} places");
+                }
+
+                
+                string sqlUnion = "SELECT email FROM Utilisateur UNION SELECT email FROM Coach";
+                DataTable dtEmails = manager.ExecuterLecture(sqlUnion);
+                Console.WriteLine($"- Total des contacts uniques en base (Membres + Coachs) : {dtEmails.Rows.Count}");
+
+                string sqlOcc = @"SELECT (COUNT(R.IdReservation) * 100.0 / SUM(S.CapaciteMax)) 
+                          FROM Seance S 
+                          LEFT JOIN Reservation R ON S.IdSeance = R.IdSeance";
+                object resOcc = manager.ExecuterCalcul(sqlOcc);
+                double occupation = (resOcc != DBNull.Value) ? Convert.ToDouble(resOcc) : 0;
+                Console.WriteLine($"- Taux de remplissage global des séances : {Math.Round(occupation, 2)}%");
+
+               Console.ForegroundColor = ConsoleColor.Blue;
+                Console.WriteLine("\n--- DISPONIBILITÉ DES SALLES (RIGHT JOIN) ---");
+                Console.ResetColor();
+                string sqlRight = @"SELECT Sa.nomSalle, COUNT(S.IdSeance) as NbCours 
+                            FROM Seance S 
+                            RIGHT JOIN Salle Sa ON S.idSalle = Sa.idSalle 
+                            GROUP BY Sa.nomSalle";
+                DataTable dtSalles = manager.ExecuterLecture(sqlRight);
+                foreach (DataRow r in dtSalles.Rows)
+                {
+                    Console.WriteLine($"- {r["nomSalle"]} : {r["NbCours"]} séance(s) enregistrée(s)");
+                }
+
+                Console.ForegroundColor = ConsoleColor.Blue;
+                Console.WriteLine("\n--- TOP 3 COACHS LES PLUS SUIVIS ---");
+                Console.ResetColor();
+                string sqlCoachs = @"SELECT C.nom, COUNT(R.IdReservation) as Nb 
+                             FROM Coach C 
+                             JOIN Seance S ON C.IdCoach = S.IdCoach 
+                             JOIN Reservation R ON S.IdSeance = R.IdSeance 
+                             WHERE C.IdCoach IN (SELECT IdCoach FROM Coach)
+                             GROUP BY C.nom ORDER BY Nb DESC LIMIT 3";
+                DataTable dtC = manager.ExecuterLecture(sqlCoachs);
+                foreach (DataRow r in dtC.Rows)
+                {
+                    Console.WriteLine($"- {r["nom"]} : {r["Nb"]} réservations");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Erreur lors de la génération : " + ex.Message);
+            }
+
+          
             Console.ReadKey();
         }
         /// <summary>
