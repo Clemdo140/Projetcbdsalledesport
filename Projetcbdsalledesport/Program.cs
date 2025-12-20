@@ -120,7 +120,7 @@ namespace Projetcbdsalledesport
             {
                
                 string sqlSallesAgg = @"SELECT COUNT(IdSeance), MIN(CapaciteMax), MAX(CapaciteMax), AVG(CapaciteMax) 
-                                FROM Seance";
+                                FROM Seance";//requête pour obtenir le nombre total de séances, la capacité minimale, maximale et moyenne des séances
                 DataTable dtAgg = manager.ExecuterLecture(sqlSallesAgg);
 
                 if (dtAgg.Rows.Count > 0 && dtAgg.Rows[0][0] != DBNull.Value)
@@ -130,13 +130,13 @@ namespace Projetcbdsalledesport
                 }
 
                 
-                string sqlUnion = "SELECT email FROM Utilisateur UNION SELECT email FROM Coach";
+                string sqlUnion = "SELECT email FROM Utilisateur UNION SELECT email FROM Coach";//requête pour obtenir la liste des emails uniques des membres et coachs
                 DataTable dtEmails = manager.ExecuterLecture(sqlUnion);
                 Console.WriteLine($"- Total des contacts uniques en base (Membres + Coachs) : {dtEmails.Rows.Count}");
 
                 string sqlOcc = @"SELECT (COUNT(R.IdReservation) * 100.0 / SUM(S.CapaciteMax)) 
                           FROM Seance S 
-                          LEFT JOIN Reservation R ON S.IdSeance = R.IdSeance";
+                          LEFT JOIN Reservation R ON S.IdSeance = R.IdSeance";//requête pour calculer le taux de remplissage global des séances
                 object resOcc = manager.ExecuterCalcul(sqlOcc);
                 double occupation = (resOcc != DBNull.Value) ? Convert.ToDouble(resOcc) : 0;
                 Console.WriteLine($"- Taux de remplissage global des séances : {Math.Round(occupation, 2)}%");
@@ -147,7 +147,7 @@ namespace Projetcbdsalledesport
                 string sqlRight = @"SELECT Sa.nomSalle, COUNT(S.IdSeance) as NbCours 
                             FROM Seance S 
                             RIGHT JOIN Salle Sa ON S.idSalle = Sa.idSalle 
-                            GROUP BY Sa.nomSalle";
+                            GROUP BY Sa.nomSalle";//requête pour obtenir le nombre de cours par salle, même celles sans cours
                 DataTable dtSalles = manager.ExecuterLecture(sqlRight);
                 foreach (DataRow r in dtSalles.Rows)
                 {
@@ -162,7 +162,7 @@ namespace Projetcbdsalledesport
                              JOIN Seance S ON C.IdCoach = S.IdCoach 
                              JOIN Reservation R ON S.IdSeance = R.IdSeance 
                              WHERE C.IdCoach IN (SELECT IdCoach FROM Coach)
-                             GROUP BY C.nom ORDER BY Nb DESC LIMIT 3";
+                             GROUP BY C.nom ORDER BY Nb DESC LIMIT 3";//requête pour obtenir les 3 coachs avec le plus de réservations
                 DataTable dtC = manager.ExecuterLecture(sqlCoachs);
                 foreach (DataRow r in dtC.Rows)
                 {
@@ -236,7 +236,7 @@ namespace Projetcbdsalledesport
                                     Console.WriteLine("--- LISTE DES MEMBRES ENREGISTRÉS ---");
                                     Console.ResetColor();
 
-                                    DataTable dt = manager.ExecuterLecture("SELECT nom, prenom, email, adresse, telephone FROM Utilisateur WHERE IdRole = 3");
+                                    DataTable dt = manager.ExecuterLecture("SELECT nom, prenom, email, adresse, telephone FROM Utilisateur WHERE IdRole = 3");//requête pour obtenir la liste des membres
 
                                     if (dt.Rows.Count > 0)
                                     {
@@ -266,7 +266,7 @@ namespace Projetcbdsalledesport
                                     string tel = SaisirChampObligatoire("Téléphone");
 
                                     string sqlPerso = $"INSERT INTO Utilisateur (nom, prenom, email, motDePasse, telephone, IdRole) " +
-                                                      $"VALUES ('{nom}', '{prenom}', '{email}', '{mdpMembre}','{adr}', '{tel}', 3)";
+                                                      $"VALUES ('{nom}', '{prenom}', '{email}', '{mdpMembre}','{adr}', '{tel}', 3)";//requête pour insérer le nouveau membre
 
                                     manager.ExecuterAction(sqlPerso);
 
@@ -293,7 +293,7 @@ namespace Projetcbdsalledesport
                                         Thread.Sleep(2000);
                                         break; 
                                     }
-                                    string sqlGetId = $"SELECT IdUtilisateur FROM Utilisateur WHERE email = '{emailSuppr}'";
+                                    string sqlGetId = $"SELECT IdUtilisateur FROM Utilisateur WHERE email = '{emailSuppr}'";//requête pour obtenir l'ID de l'utilisateur à supprimer
                                     DataTable dtU = manager.ExecuterLecture(sqlGetId);
 
                                     if (dtU.Rows.Count > 0)
@@ -307,9 +307,9 @@ namespace Projetcbdsalledesport
                                         {
                                             Console.Write("\nSuppression en cours...");
                                             Thread.Sleep(1000);
-                                            manager.ExecuterAction($"DELETE FROM Reservation WHERE IdUtilisateur = {idAuteur}");
-                                            manager.ExecuterAction($"DELETE FROM Souscription WHERE IdUtilisateur = {idAuteur}");
-                                            manager.ExecuterAction($"DELETE FROM Utilisateur WHERE IdUtilisateur = {idAuteur}");
+                                            manager.ExecuterAction($"DELETE FROM Reservation WHERE IdUtilisateur = {idAuteur}");//suppression des réservations associées
+                                            manager.ExecuterAction($"DELETE FROM Souscription WHERE IdUtilisateur = {idAuteur}");//suppression des souscriptions associées
+                                            manager.ExecuterAction($"DELETE FROM Utilisateur WHERE IdUtilisateur = {idAuteur}");//suppression de l'utilisateur associé
 
                                             Console.ForegroundColor = ConsoleColor.Green;
                                             Console.WriteLine("\nMembre supprimé avec succès.");
@@ -363,7 +363,7 @@ namespace Projetcbdsalledesport
                                     Console.ForegroundColor = ConsoleColor.Blue;
                                     Console.WriteLine("--- LISTE DES COACHS ---");
                                     Console.ResetColor();
-                                    DataTable dt = manager.ExecuterLecture("SELECT nom, prenom, specialite, formation, telephone, email FROM Coach");
+                                    DataTable dt = manager.ExecuterLecture("SELECT nom, prenom, specialite, formation, telephone, email FROM Coach");//requête pour obtenir la liste des coachs
 
                                     if (dt.Rows.Count > 0)
                                     {
@@ -393,7 +393,7 @@ namespace Projetcbdsalledesport
                                     string t = SaisirChampObligatoire("Numéro de téléphone");
                                     string e = SaisirChampObligatoire("Email");
                                     string sqlAdd = $"INSERT INTO Coach (nom, prenom, specialite, formation, telephone, email) " +
-                                                    $"VALUES ('{n}', '{p}', '{s}', '{f}', '{t}', '{e}')";
+                                                    $"VALUES ('{n}', '{p}', '{s}', '{f}', '{t}', '{e}')";//requête pour insérer le nouveau coach
 
                                     manager.ExecuterAction(sqlAdd);
 
@@ -408,7 +408,7 @@ namespace Projetcbdsalledesport
                                     Console.ForegroundColor = ConsoleColor.Blue;
                                     Console.WriteLine("--- SUPPRESSION D'UN COACH ---");
                                     Console.ResetColor();
-                                    DataTable dtCoachs = manager.ExecuterLecture("SELECT IdCoach, nom, prenom, email FROM Coach");
+                                    DataTable dtCoachs = manager.ExecuterLecture("SELECT IdCoach, nom, prenom, email FROM Coach");//requête pour obtenir la liste des coachs
                                     Console.WriteLine("Liste des coachs enregistrés :");
                                     foreach (DataRow r in dtCoachs.Rows)
                                     {
@@ -420,7 +420,7 @@ namespace Projetcbdsalledesport
 
                                     if (int.TryParse(idCSuppr, out int idC))
                                     {
-                                        object countC = manager.ExecuterCalcul($"SELECT COUNT(*) FROM Coach WHERE IdCoach = {idC}");
+                                        object countC = manager.ExecuterCalcul($"SELECT COUNT(*) FROM Coach WHERE IdCoach = {idC}");//vérification de l'existence de l'ID
                                         if (Convert.ToInt32(countC) > 0)
                                         {
                                             Console.ForegroundColor = ConsoleColor.Yellow;
@@ -429,8 +429,8 @@ namespace Projetcbdsalledesport
 
                                             if (Console.ReadLine().ToUpper() == "O")
                                             {
-                                                manager.ExecuterAction($"DELETE FROM Seance WHERE IdCoach = {idC}");
-                                                manager.ExecuterAction($"DELETE FROM Coach WHERE IdCoach = {idC}");
+                                                manager.ExecuterAction($"DELETE FROM Seance WHERE IdCoach = {idC}");//suppression des séances associées
+                                                manager.ExecuterAction($"DELETE FROM Coach WHERE IdCoach = {idC}");//suppression du coach
 
                                                 Console.ForegroundColor = ConsoleColor.Green;
                                                 Console.WriteLine("\nCoach supprimé avec succès.");
@@ -489,7 +489,7 @@ namespace Projetcbdsalledesport
                                         JOIN TypeCours T ON S.IdCours = T.IdCours
                                         JOIN Coach C ON S.IdCoach = C.IdCoach
                                         JOIN Salle Sa ON S.idSalle = Sa.idSalle
-                                        ORDER BY S.DateDebut";
+                                        ORDER BY S.DateDebut";//requête pour obtenir le planning détaillé des cours
 
                                     DataTable dt = manager.ExecuterLecture(sqlPlanningComplet);
 
@@ -521,7 +521,7 @@ namespace Projetcbdsalledesport
                                     Console.WriteLine("--- CRÉATION D'UNE NOUVELLE SÉANCE ---");
                                     Console.ResetColor();
                                     string nomCours = SaisirChampObligatoire("Nom du cours (ex: Yoga)");
-                                    string sqlIdC = $"SELECT IdCours FROM TypeCours WHERE NomCours = '{nomCours}'";
+                                    string sqlIdC = $"SELECT IdCours FROM TypeCours WHERE NomCours = '{nomCours}'";//requête pour obtenir l'ID du type de cours
                                     DataTable dtCours = manager.ExecuterLecture(sqlIdC);
 
                                     if (dtCours.Rows.Count == 0)
@@ -577,28 +577,28 @@ namespace Projetcbdsalledesport
                                     Console.ForegroundColor = ConsoleColor.Cyan;
                                     Console.WriteLine("\n--- LISTE DES COACHS ---");
                                     Console.ResetColor();
-                                    DataTable dtCo = manager.ExecuterLecture("SELECT IdCoach, nom, prenom FROM Coach");
+                                    DataTable dtCo = manager.ExecuterLecture("SELECT IdCoach, nom, prenom FROM Coach");//requête pour obtenir la liste des coachs
                                     foreach (DataRow r in dtCo.Rows) Console.WriteLine($" ID: {r["IdCoach"]} | {r["prenom"]} {r["nom"]}");
                                     string idC = SaisirChampObligatoire("Entrez l'ID du coach choisi");
 
                                     Console.ForegroundColor = ConsoleColor.Cyan;
                                     Console.WriteLine("\n--- LISTE DES SALLES ---");
                                     Console.ResetColor();
-                                    DataTable dtSa = manager.ExecuterLecture("SELECT idSalle, nomSalle, capacite FROM Salle");
+                                    DataTable dtSa = manager.ExecuterLecture("SELECT idSalle, nomSalle, capacite FROM Salle");//requête pour obtenir la liste des salles
                                     foreach (DataRow r in dtSa.Rows) Console.WriteLine($" ID: {r["idSalle"]} | {r["nomSalle"]} (Capacité: {r["capacite"]})");
                                     string idS = SaisirChampObligatoire("Entrez l'ID de la salle choisie");
 
                                     try
                                     {
               
-                                        string sqlCap = $"SELECT capacite FROM Salle WHERE idSalle = {idS}";
+                                        string sqlCap = $"SELECT capacite FROM Salle WHERE idSalle = {idS}";//requête pour obtenir la capacité maximale de la salle choisie
                                         object resultCap = manager.ExecuterCalcul(sqlCap);
 
                                         if (resultCap != null)
                                         {
                                             int capMax = Convert.ToInt32(resultCap);
                                             string sqlIns = $"INSERT INTO Seance (IdCours, DateDebut, IdCoach, idSalle, CapaciteMax, DureeMinutes) " +
-                                                            $"VALUES ({idCoursValide}, '{dateSaisie:yyyy-MM-dd HH:mm:ss}', {idC}, {idS}, {capMax}, {dureeMinutes})";
+                                                            $"VALUES ({idCoursValide}, '{dateSaisie:yyyy-MM-dd HH:mm:ss}', {idC}, {idS}, {capMax}, {dureeMinutes})";//requête pour insérer la nouvelle séance
 
                                             manager.ExecuterAction(sqlIns);
 
@@ -631,7 +631,7 @@ namespace Projetcbdsalledesport
                                     string sqlPlanning = @"SELECT S.IdSeance, T.NomCours, S.DateDebut 
                                                           FROM Seance S 
                                                           JOIN TypeCours T ON S.IdCours = T.IdCours 
-                                                          ORDER BY S.DateDebut";
+                                                          ORDER BY S.DateDebut";//requête pour obtenir le planning des cours
 
                                     DataTable dtPlanning = manager.ExecuterLecture(sqlPlanning);
 
@@ -652,7 +652,7 @@ namespace Projetcbdsalledesport
                                             if (int.TryParse(idSaisie, out int idCours))
                                             {
                                        
-                                                string sqlCheck = $"SELECT COUNT(*) FROM Seance WHERE IdSeance = {idCours}";
+                                                string sqlCheck = $"SELECT COUNT(*) FROM Seance WHERE IdSeance = {idCours}";//vérification de l'existence du cours
                                                 int existe = Convert.ToInt32(manager.ExecuterCalcul(sqlCheck));
 
                                                 if (existe > 0)
@@ -660,9 +660,9 @@ namespace Projetcbdsalledesport
                                                     try
                                                     {
                                                   
-                                                        manager.ExecuterAction($"DELETE FROM Reservation WHERE IdSeance = {idCours}");
-                                          
-                                                        manager.ExecuterAction($"DELETE FROM Seance WHERE IdSeance = {idCours}");
+                                                        manager.ExecuterAction($"DELETE FROM Reservation WHERE IdSeance = {idCours}");//suppression des réservations associées
+
+                                                        manager.ExecuterAction($"DELETE FROM Seance WHERE IdSeance = {idCours}");//suppression du cours
 
                                                         Console.ForegroundColor = ConsoleColor.Green;
                                                         Console.WriteLine("\nLe cours et ses réservations ont été supprimés.");
@@ -728,7 +728,7 @@ namespace Projetcbdsalledesport
                                     Console.ForegroundColor = ConsoleColor.Blue;
                                     Console.WriteLine("--- LISTE DES SALLES ---");
                                     Console.ResetColor();
-                                    DataTable dtSalles = manager.ExecuterLecture("SELECT * FROM Salle");
+                                    DataTable dtSalles = manager.ExecuterLecture("SELECT * FROM Salle");//requête pour obtenir la liste des salles
 
                                     if (dtSalles.Rows.Count > 0)
                                     {
@@ -770,7 +770,7 @@ namespace Projetcbdsalledesport
 
                                     try
                                     {
-                                        string sqlAddSalle = $"INSERT INTO Salle (nomSalle, capacite) VALUES ('{nomS}', {capS})";
+                                        string sqlAddSalle = $"INSERT INTO Salle (nomSalle, capacite) VALUES ('{nomS}', {capS})";//requête pour insérer la nouvelle salle
 
                                         manager.ExecuterAction(sqlAddSalle);
 
@@ -794,7 +794,7 @@ namespace Projetcbdsalledesport
                                     Console.WriteLine("--- SUPPRIMER UNE SALLE (PAR ID) ---");
                                     Console.ResetColor();
 
-                                    DataTable dtSalle = manager.ExecuterLecture("SELECT idSalle, nomSalle FROM Salle");
+                                    DataTable dtSalle = manager.ExecuterLecture("SELECT idSalle, nomSalle FROM Salle");//requête pour obtenir la liste des salles
                                     Console.WriteLine("Liste des salles disponibles :");
                                     foreach (DataRow r in dtSalle.Rows)
                                     {
@@ -806,7 +806,7 @@ namespace Projetcbdsalledesport
                                     if (int.TryParse(saisieId, out int idS))
                                     {
                                        
-                                        object existe = manager.ExecuterCalcul($"SELECT COUNT(*) FROM Salle WHERE idSalle = {idS}");
+                                        object existe = manager.ExecuterCalcul($"SELECT COUNT(*) FROM Salle WHERE idSalle = {idS}");//  vérification de l'existence de l'ID
                                         if (Convert.ToInt32(existe) > 0)
                                         {
                                             Console.ForegroundColor = ConsoleColor.Yellow;
@@ -815,8 +815,8 @@ namespace Projetcbdsalledesport
 
                                             if (Console.ReadLine().ToUpper() == "O")
                                             {
-                                                manager.ExecuterAction($"DELETE FROM Seance WHERE idSalle = {idS}");
-                                                manager.ExecuterAction($"DELETE FROM Salle WHERE idSalle = {idS}");
+                                                manager.ExecuterAction($"DELETE FROM Seance WHERE idSalle = {idS}");//suppression des séances associées
+                                                manager.ExecuterAction($"DELETE FROM Salle WHERE idSalle = {idS}");//suppression de la salle
 
                                                 Console.ForegroundColor = ConsoleColor.Green;
                                                 Console.WriteLine("\nSalle supprimée avec succès.");
@@ -875,7 +875,7 @@ namespace Projetcbdsalledesport
                 Console.ResetColor();
                 Console.WriteLine("0) Retour / Déconnexion");
                 Console.WriteLine("1) Valider une inscription (Adhésion)");
-                Console.WriteLine("2) Voir la liste des membres"); // Option utile pour le staff
+                Console.WriteLine("2) Voir la liste des membres"); 
                 Console.WriteLine("3) Consulter le planning");
               
                 Console.Write("\nVotre choix : ");
@@ -896,7 +896,7 @@ namespace Projetcbdsalledesport
                              FROM Utilisateur U
                              LEFT JOIN Souscription S ON U.IdUtilisateur = S.IdUtilisateur
                              LEFT JOIN TypeAdhesion T ON S.IdTypeAdhesion = T.IdTypeAdhesion
-                             WHERE U.IdRole = 3"; 
+                             WHERE U.IdRole = 3"; //requête pour obtenir la liste des membres avec leurs abonnements
 
                         DataTable dtMembres = manager.ExecuterLecture(sqlMembresAdh);
 
@@ -926,7 +926,7 @@ namespace Projetcbdsalledesport
                         Console.ResetColor();
                         string sqlPlanning = @"SELECT T.NomCours, S.DateDebut 
                           FROM Seance S 
-                          JOIN TypeCours T ON S.IdCours = T.IdCours";
+                          JOIN TypeCours T ON S.IdCours = T.IdCours";//requête pour obtenir le planning des séances
 
                         DataTable dtP = manager.ExecuterLecture(sqlPlanning);
 
@@ -981,7 +981,7 @@ namespace Projetcbdsalledesport
                         Console.ResetColor();
                         string sqlPlanning = @"SELECT S.IdSeance, T.NomCours, T.Description, T.Intensite, S.DateDebut 
                                               FROM Seance S 
-                                              JOIN TypeCours T ON S.IdCours = T.IdCours";
+                                              JOIN TypeCours T ON S.IdCours = T.IdCours";//requête pour obtenir le planning des cours avec détails
                         DataTable dtP = manager.ExecuterLecture(sqlPlanning);
 
                         foreach (DataRow r in dtP.Rows)
@@ -1002,8 +1002,8 @@ namespace Projetcbdsalledesport
 
                         try
                         {
-                            // 1. Vérification de l'abonnement
-                            string abo = $"SELECT statut FROM Souscription WHERE IdUtilisateur = {membre.IdUtilisateur} AND statut = 'Validée'";
+                            // Vérification de l'abonnement
+                            string abo = $"SELECT statut FROM Souscription WHERE IdUtilisateur = {membre.IdUtilisateur} AND statut = 'Validée'";//requête pour vérifier l'abonnement valide
                             DataTable dtAbo = manager.ExecuterLecture(abo);
 
                             if (dtAbo.Rows.Count == 0)
@@ -1016,10 +1016,10 @@ namespace Projetcbdsalledesport
                                 break;
                             }
 
-                            // 2. Affichage des séances avec calcul des places en SQL
+                            // Affichage des séances avec calcul des places
                             string sqlDispo = @"SELECT S.IdSeance, T.NomCours, S.DateDebut, S.CapaciteMax,
                           (SELECT COUNT(*) FROM Reservation R WHERE R.IdSeance = S.IdSeance) as Inscrits
-                          FROM Seance S JOIN TypeCours T ON S.IdCours = T.IdCours";
+                          FROM Seance S JOIN TypeCours T ON S.IdCours = T.IdCours";//requête pour obtenir les séances avec le nombre d'inscrits
 
                             DataTable dtDispo = manager.ExecuterLecture(sqlDispo);
 
@@ -1039,7 +1039,7 @@ namespace Projetcbdsalledesport
                                 if (coursSelect.Length > 0)
                                 {
                                     // Vérification doublon
-                                    string sqlDoublon = $"SELECT COUNT(*) FROM Reservation WHERE IdUtilisateur = {membre.IdUtilisateur} AND IdSeance = {idChoisi}";
+                                    string sqlDoublon = $"SELECT COUNT(*) FROM Reservation WHERE IdUtilisateur = {membre.IdUtilisateur} AND IdSeance = {idChoisi}";//requête pour vérifier les doublons de réservation
                                     if (Convert.ToInt32(manager.ExecuterCalcul(sqlDoublon)) > 0)
                                     {
                                         Console.ForegroundColor = ConsoleColor.Red;
@@ -1053,7 +1053,7 @@ namespace Projetcbdsalledesport
                                         if (inscrits < max)
                                         {
                                             // Exécution de l'achat/réservation
-                                            manager.ExecuterAction($"INSERT INTO Reservation (IdUtilisateur, IdSeance, dateReservation) VALUES ({membre.IdUtilisateur}, {idChoisi}, NOW())");
+                                            manager.ExecuterAction($"INSERT INTO Reservation (IdUtilisateur, IdSeance, dateReservation) VALUES ({membre.IdUtilisateur}, {idChoisi}, NOW())");//requête pour insérer la réservation
                                             Console.ForegroundColor = ConsoleColor.Green;
                                             Console.WriteLine("\nRéservation confirmée !");
                                         }
@@ -1096,7 +1096,7 @@ namespace Projetcbdsalledesport
                         string sqlAbo = "SELECT s.dateDebut, s.dateFin, t.libelle, s.statut " +
                                         "FROM Souscription s " +
                                         "JOIN TypeAdhesion t ON s.IdTypeAdhesion = t.IdTypeAdhesion " +
-                                        $"WHERE s.IdUtilisateur = {membre.IdUtilisateur}";
+                                        $"WHERE s.IdUtilisateur = {membre.IdUtilisateur}";//requête pour obtenir le statut de l'abonnement
 
                         DataTable dtAbon = manager.ExecuterLecture(sqlAbo);
 
@@ -1139,7 +1139,7 @@ namespace Projetcbdsalledesport
                                         "JOIN TypeCours t ON s.IdCours = t.IdCours " +
                                         "JOIN Salle sa ON s.idSalle = sa.idSalle " +
                                         $"WHERE r.IdUtilisateur = {membre.IdUtilisateur} " +
-                                        "ORDER BY s.DateDebut ASC";
+                                        "ORDER BY s.DateDebut ASC";//requête pour obtenir les réservations du membre
 
                         DataTable dtRes = manager.ExecuterLecture(sqlRes);
 
@@ -1160,12 +1160,12 @@ namespace Projetcbdsalledesport
                                 if (int.TryParse(choixAnnul, out int idResultat))
                                 {
                               
-                                    string sqlCheck = $"SELECT COUNT(*) FROM Reservation WHERE IdReservation = {idResultat} AND IdUtilisateur = {membre.IdUtilisateur}";
+                                    string sqlCheck = $"SELECT COUNT(*) FROM Reservation WHERE IdReservation = {idResultat} AND IdUtilisateur = {membre.IdUtilisateur}";//vérification de l'existence de la réservation
                                     int check = Convert.ToInt32(manager.ExecuterCalcul(sqlCheck));
 
                                     if (check > 0)
                                     {
-                                        manager.ExecuterAction($"DELETE FROM Reservation WHERE IdReservation = {idResultat}");
+                                        manager.ExecuterAction($"DELETE FROM Reservation WHERE IdReservation = {idResultat}");//suppression de la réservation
                                         Console.ForegroundColor = ConsoleColor.Green;
                                         Console.WriteLine("\nRéservation annulée avec succès.");
                                         Console.ResetColor();
@@ -1200,7 +1200,7 @@ namespace Projetcbdsalledesport
                         Console.WriteLine("--- SOUSCRIRE À UN ABONNEMENT ---");
                         Console.ResetColor();
                         Console.WriteLine("En souscrivant à un nouvel abonnement, votre ancien abonnement sera remplacé et vos séances réservées annulées");
-                        DataTable dtTypes = manager.ExecuterLecture("SELECT * FROM TypeAdhesion");
+                        DataTable dtTypes = manager.ExecuterLecture("SELECT * FROM TypeAdhesion");//requête pour obtenir les types d'adhésion
                         Console.WriteLine("\nNos offres disponibles :");
                         foreach (DataRow r in dtTypes.Rows)
                         {
@@ -1212,14 +1212,14 @@ namespace Projetcbdsalledesport
 
                         if (!string.IsNullOrEmpty(choixAdh))
                         {
-                            string sqlNettoyage = $"DELETE FROM Souscription WHERE IdUtilisateur = {membre.IdUtilisateur}";
+                            string sqlNettoyage = $"DELETE FROM Souscription WHERE IdUtilisateur = {membre.IdUtilisateur}";//suppression de l'ancien abonnement
                             manager.ExecuterAction(sqlNettoyage);
                             DateTime debut = DateTime.Now;
                             DateTime fin = DateTime.Now.AddMonths(12);
                             string dateDebutStr = debut.ToString("yyyy-MM-dd");
                             string dateFinStr = fin.ToString("yyyy-MM-dd");
                             string sqlSouscrire = $"INSERT INTO Souscription (dateDebut, dateFin, statut, IdUtilisateur, IdTypeAdhesion) " +
-                                                  $"VALUES ('{dateDebutStr}', '{dateFinStr}', 'En attente', {membre.IdUtilisateur}, {choixAdh})";
+                                                  $"VALUES ('{dateDebutStr}', '{dateFinStr}', 'En attente', {membre.IdUtilisateur}, {choixAdh})";//requête pour insérer la nouvelle souscription
 
                             try
                             {
@@ -1269,7 +1269,7 @@ namespace Projetcbdsalledesport
 
             string sql = "SELECT s.IdSouscription, u.nom, u.prenom FROM Souscription s " +
                          "JOIN Utilisateur u ON s.IdUtilisateur = u.IdUtilisateur " +
-                         "WHERE s.statut = 'En attente'";
+                         "WHERE s.statut = 'En attente'";//requête pour obtenir les inscriptions en attente
 
             DataTable dt = manager.ExecuterLecture(sql);
 
@@ -1285,14 +1285,14 @@ namespace Projetcbdsalledesport
                 if (int.TryParse(idSaisie, out int idValide))
                 {
                     
-                    string sqlCheck = $"SELECT COUNT(*) FROM Souscription WHERE IdSouscription = {idValide} AND statut = 'En attente'";
+                    string sqlCheck = $"SELECT COUNT(*) FROM Souscription WHERE IdSouscription = {idValide} AND statut = 'En attente'";//vérification de l'existence de l'inscription en attente
                     int existe = Convert.ToInt32(manager.ExecuterCalcul(sqlCheck));
 
                     if (existe > 0)
                     {
                         try
                         {
-                            manager.ExecuterAction($"UPDATE Souscription SET statut = 'Validée' WHERE IdSouscription = {idValide}");
+                            manager.ExecuterAction($"UPDATE Souscription SET statut = 'Validée' WHERE IdSouscription = {idValide}");//requête pour valider l'inscription
                             Console.ForegroundColor = ConsoleColor.Green;
                             Console.WriteLine("\nInscription validee.");
                             Console.ResetColor();
